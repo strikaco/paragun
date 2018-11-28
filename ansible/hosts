@@ -1,0 +1,17 @@
+[balancer]
+54.201.183.134 ansible_python_interpreter=/usr/bin/python3
+
+[listener]
+54.185.165.40 ansible_python_interpreter=/usr/bin/python3
+
+[parser]
+#127.0.0.1
+
+[database]
+#127.0.0.1
+
+[frontend]
+#127.0.0.1
+
+[writer]
+#127.0.0.1

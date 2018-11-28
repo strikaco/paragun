@@ -1,0 +1,163 @@
+---
+- hosts: all
+  tasks:
+  - name: Add rsyslog repo
+    apt_repository:
+      repo: ppa:adiscon/v8-stable
+      state: present
+  - name: Update Ubuntu
+    apt: 
+      update_cache: yes 
+      upgrade: no
+  - name: Install core utilities
+    apt: 
+      name: ['bash', 'openssl', 'libssl-dev', 'libssl-doc', 'git', 'software-properties-common']
+      state: latest
+    tags: packages
+  - name: Install rsyslog
+    apt:
+      name: ['rsyslog', 'rsyslog-gnutls', 'rsyslog-relp']
+      state: present
+  - name: Firewall, allow ssh
+    ufw: 
+      rule: allow
+      direction: in
+      port: 22
+      proto: tcp
+      log: no
+  - name: Firewall, deny by default
+    ufw:
+      state: enabled
+      policy: deny
+      log: no
+      
+- hosts: balancer
+  tasks:
+  - name: Install nginx
+    apt:
+      name: ['nginx']
+      state: present
+  - name: Configure nginx
+    template: 
+      src: templates/nginx.conf.j2
+      dest: /etc/nginx/nginx.conf
+      backup: yes
+    notify:
+    - Restart nginx
+  - name: Allow incoming traffic on UDP 514
+    ufw:
+      rule: allow
+      direction: in
+      port: 514
+      proto: udp
+  - name: Allow incoming traffic on TCP 10514
+    ufw:
+      rule: allow
+      direction: in
+      port: 10514
+      proto: tcp
+  - name: Allow incoming traffic on TCP 20514 (RELP)
+    ufw:
+      rule: allow
+      direction: in
+      port: 20514
+      proto: tcp
+  handlers:
+  - name: Restart nginx
+    service: 
+      name: nginx
+      state: restarted
+      
+- hosts: database
+  tasks:
+  - name: Install PostgreSQL
+    apt: 
+      name: ['postgresql', 'postgresql-contrib', 'libpq-dev', 'python-psycopg2']
+      state: present
+    tags: packages
+  - name: Start PostgreSQL
+    service: 
+      name: postgresql
+      state: started
+      enabled: yes
+  - name: Create database
+    become: yes
+    become_user: postgres
+    postgresql_db: 
+      name: paragun
+      state: present
+  - name: Create database user
+    become: yes
+    become_user: postgres
+    postgresql_user: 
+      db: paragun
+      name: paragun_db
+      password: password123
+      priv: ALL
+      state: present
+  - name: Set database user permissions
+    become: yes
+    become_user: postgres
+    postgresql_user: 
+      name: paragun_db
+      role_attr_flags: 'NOSUPERUSER,NOCREATEDB'
+      state: present
+  - name: Allow traffic to DB on TCP 5432
+    ufw:
+      rule: allow
+      direction: in
+      port: 5432
+      proto: tcp
+      
+- hosts: listener
+  tasks:
+  - name: Configure rsyslog core
+    synchronize:
+      src: templates/rsyslog-listeners.conf
+      dest: /etc/rsyslog.conf
+    notify:
+    - Restart rsyslog
+  - name: Configure rsyslog as listener
+    synchronize:
+      src: templates/rsyslog-00-listener.conf
+      dest: /etc/rsyslog.d/00-listener.conf
+    notify:
+    - Restart rsyslog
+  - name: Create output directory
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/received/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Allow incoming traffic on UDP 514 from Balancers
+    ufw:
+      rule: allow
+      direction: in
+      port: 514
+      proto: udp
+      src: '{{ item }}'
+    with_items: '{{ groups.balancer }}'
+  - name: Allow incoming traffic on TCP 10514 from Balancers
+    ufw:
+      rule: allow
+      direction: in
+      port: 10514
+      proto: tcp
+      src: '{{ item }}'
+    with_items: '{{ groups.balancer }}'
+  - name: Allow incoming traffic on TCP 20514 (RELP) from Balancers
+    ufw:
+      rule: allow
+      direction: in
+      port: 20514
+      proto: tcp
+      src: '{{ item }}'
+    with_items: '{{ groups.balancer }}'
+  handlers:
+  - name: Restart rsyslog
+    service: 
+      name: rsyslog
+      state: restarted
