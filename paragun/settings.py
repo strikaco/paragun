@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+import ldap
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s')
+logger = logging.getLogger(__name__)
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -101,6 +105,24 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+LDAP_ENABLED = False
+
+LDAP_SERVER = 'ldaps://ldap.corp.example.com'
+LDAP_BASE = 'ou=Users,dc=example,dc=com'
+LDAP_USERNAME = 'ldap'
+LDAP_PASSWORD = 'ldap_password123'
+
+try:
+    if LDAP_ENABLED:
+        # Ignore self signed cert errors
+        #ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
+        LDAP_CONN = ldap.initialize(LDAP_SERVER)
+        LDAP_CONN.simple_bind_s("uid=%(username)s,%(ldap_base)s" % {'username': LDAP_USERNAME, 'ldap_base': LDAP_BASE}, LDAP_PASSWORD)
+        
+except Exception as e:
+    logger.error("LDAP_ENABLED is True, but there was a problem with the configuration.")
+    logger.error(e)
+    quit()
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
