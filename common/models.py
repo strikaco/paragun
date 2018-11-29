@@ -37,7 +37,7 @@ class AbstractBaseModel(models.Model):
     updated = models.DateTimeField(default=timezone.now, help_text="Date and time of last object modification.")
     enabled = models.BooleanField(default=True, help_text="Whether or not this object should be enabled.")
     
-    # Custom object handler; allows filtering by enabled objects
+    # Custom object handler
     objects = AbstractBaseModelManager()
     
     def save(self, *args, **kwargs):
