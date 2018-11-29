@@ -32,7 +32,7 @@ class Application(BaseModel):
 
 class Token(BaseModel):
     owners = models.ManyToManyField('User', help_text="What user(s) are responsible for the logs submitted using this token?")
-    application = models.ForeignKey('Application', on_delete=models.PROTECT, help_text="What application is this token designed to support?")
+    application = models.ForeignKey('Application', on_delete=models.PROTECT, help_text="What business process or application is this token designed to support?")
     expires = models.DateTimeField(default=timezone.now, help_text="Date and time of token expiration.")
     
     value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
