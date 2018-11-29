@@ -15,9 +15,9 @@ class BaseModel(models.Model):
     
     id = models.BigAutoField(primary_key=True)
     
-    created = models.DateTimeField(default=timezone.now)
-    updated = models.DateTimeField(default=timezone.now)
-    enabled = models.BooleanField(default=True)
+    created = models.DateTimeField(default=timezone.now, help_text="Date and time of object creation.")
+    updated = models.DateTimeField(default=timezone.now, help_text="Date and time of last object modification.")
+    enabled = models.BooleanField(default=True, help_text="Whether or not this object should be enabled.")
     
     def save(self, *args, **kwargs):
         """
@@ -31,11 +31,11 @@ class Application(BaseModel):
     pass
 
 class Token(BaseModel):
-    owner = models.ForeignKey('User', on_delete=models.PROTECT)
-    application = models.ForeignKey('Application', on_delete=models.PROTECT)
-    expires = models.DateTimeField(default=timezone.now)
+    owners = models.ManyToManyField('User', help_text="What user(s) are responsible for the logs submitted using this token?")
+    application = models.ForeignKey('Application', on_delete=models.PROTECT, help_text="What application is this token designed to support?")
+    expires = models.DateTimeField(default=timezone.now, help_text="Date and time of token expiration.")
     
-    value = models.CharField(max_length=255, default=uuid4, db_index=True)
+    value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
     
     def generate(self):
         return uuid4()
