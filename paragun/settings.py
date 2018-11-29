@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# What interface to listen for events on
+LISTEN_INTERFACE = "0.0.0.0"
+
+# What TCP port to listen for events on
+LISTEN_PORT = 65514
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -43,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'common.apps.CommonConfig',
+    'parsing.apps.ParsingConfig',
 ]
 
 MIDDLEWARE = [
