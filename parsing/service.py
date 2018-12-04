@@ -1,6 +1,8 @@
 from django.conf import settings
 import eventlet
 import logging
+import re
+
 
 class Service(object):
     
@@ -32,6 +34,7 @@ class Service(object):
         
         logger.info("...service started.")
         
+        
     def listen(self):
         """
         Event loop that listens for incoming events and takes action 
@@ -52,6 +55,9 @@ class Service(object):
                 
             except (SystemExit, KeyboardInterrupt):
                 break
+            
+        logger.info("Listener for %s:%s stopped." % (self.interface, self.port))
+        
         
     def handle(self, fd):
         """
@@ -63,17 +69,18 @@ class Service(object):
         while True:
             # Get non-EOF line
             # What does this do on multiline?
-            msg = fd.readline()
+            msg = fd.readline().strip()
             if not msg:
                 break
             
             # Parse the message
             #obj = self.parse(msg)
-            obj = {'msg': msg.strip()}
+            obj = {
+                'msg': msg,
+                'pattern': ''.join(re.findall('([^a-zA-Z0-9\s]+)', msg))
+            }
             
             # Add it to queue
             self.outbox.put(obj)
             
             logger.info(obj)
-            
-print("client disconnected")
