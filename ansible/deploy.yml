@@ -18,6 +18,10 @@
     apt:
       name: ['rsyslog', 'rsyslog-gnutls', 'rsyslog-relp']
       state: present
+  - name: Copy rsyslog-spam test script
+    synchronize:
+      src: syslog_spam.py
+      dest: /tmp/syslog_spam.py
   - name: Firewall, allow ssh
     ufw: 
       rule: allow
