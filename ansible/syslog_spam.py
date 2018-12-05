@@ -1,5 +1,6 @@
 from random import choice
 from time import sleep
+import uuid
 import socket
 import sys
 
@@ -24,7 +25,7 @@ try:
 
     while True:
         # Send data
-        msg = choice(messages) + ' f47ac10b-58cc-4372-a567-0e02b2c3d479@P4R4GN'
+        msg = choice(messages) + ' %s@P4R4GN' % uuid.uuid4()
         sent = sock.sendto(msg.encode(), server_address)
         print(msg)
         sleep(1)
