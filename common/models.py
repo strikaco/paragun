@@ -56,7 +56,7 @@ class Host(AbstractBaseModel):
     
     @property
     def fqdn(self):
-        return '.'.join(self.hostname, self.domain)
+        return '.'.join((self.hostname, self.domain))
         
     @fqdn.setter
     def fqdn(self, val):
@@ -74,28 +74,23 @@ class Host(AbstractBaseModel):
         super().save(*args, **kwargs)
 
 
-class Application(AbstractBaseModel):
-    """
-    Object representing a business process or application.
-    
-    """
-    value = models.CharField(max_length=255, help_text="Name of the application or business process.")
-    hosts = models.ManyToManyField('Host', help_text="Hostnames or FQDNs identifying this application/process.")
-
-
 class Token(AbstractBaseModel):
     """
     A unique string associated with a user or set of users that permits them to
     furnish logs for ingestion.
     
     """
-    owners = models.ManyToManyField('User', help_text="What user(s) are responsible for the logs submitted using this token?")
-    application = models.ForeignKey('Application', on_delete=models.PROTECT, help_text="What business process or application is this token designed to support?")
-    expires = models.DateTimeField(default=timezone.now, help_text="Date and time of token expiration.")
+    users = models.ManyToManyField('User', help_text="What user(s) are responsible for the logs submitted using this token?")
+    hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
+    expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     
     value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
     
-    def generate(self):
+    def __str__(self):
+        return self.value
+    
+    @classmethod
+    def generate(cls):
         return uuid4()
     
     def renew(self):
@@ -103,5 +98,8 @@ class Token(AbstractBaseModel):
         self.save()
 
 
-class User(AbstractBaseModel, AbstractUser):
-    pass
+class User(AbstractUser, AbstractBaseModel):
+    
+    @property
+    def tokens(self):
+        return Token.objects.filter(enabled=True, users__in=[self]).order_by('-expires')
