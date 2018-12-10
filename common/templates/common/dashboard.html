@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p>Tokens</p>
+<ul>
+{% for token in request.user.tokens|slice:":5" %}
+  <li>{{ token }} ({{ token.expires }})</li>
+{% empty %}
+  <li>No tokens found!</li>
+{% endfor %}
+</ul>
+{% endblock %}
