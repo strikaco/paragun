@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('accounts/dashboard/', DashboardView.as_view(), name="dashboard"),
-    path('tokens/', TokenListView.as_view(), name="tokens"),
+    path('dashboard/', DashboardView.as_view(), name="dashboard"),
     path('', IndexView.as_view(), name="index"),
 ]

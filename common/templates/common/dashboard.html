@@ -1,12 +1,41 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>Tokens</p>
-<ul>
-{% for token in request.user.tokens|slice:":5" %}
-  <li>{{ token }} ({{ token.expires }})</li>
-{% empty %}
-  <li>No tokens found!</li>
+{% for object in object_list %}
+<div class="card border-light mb-3">
+  
+  <div class="card-body">
+    <div class="row">
+      <div class="col-lg-9 col-sm-12">
+        <h4 class="card-title">{{ object }} <small class="text-muted">{{ object.expires|timeuntil }} left</small></h4>
+      </div>
+      <div class="col-lg-3 col-sm-12">
+        <button type="button" class="btn btn-primary btn-block">Renew / Update</button>
+      </div>
+    </div>
+    
+    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+  </div>
+</div>
 {% endfor %}
-</ul>
+
+<div class="row">
+  
+  <!-- left column -->
+  <div class="col-lg-9 col-sm-12">
+    <ul>
+    
+    </ul>
+  </div>
+  <!-- end left column -->
+  
+  <!-- right column -->
+  <div class="col-lg-3 col-sm-12">
+    
+  </div>
+  <!-- end right column -->
+  
+</div>
+
+
 {% endblock %}
