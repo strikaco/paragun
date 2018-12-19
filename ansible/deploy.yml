@@ -1,5 +1,6 @@
 ---
 - hosts: all
+    
   tasks:
   - name: Add rsyslog repo
     apt_repository:
@@ -8,10 +9,10 @@
   - name: Update Ubuntu
     apt: 
       update_cache: yes 
-      upgrade: no
+      upgrade: yes
   - name: Install core utilities
     apt: 
-      name: ['bash', 'openssl', 'libssl-dev', 'libssl-doc', 'git', 'software-properties-common']
+      name: ['bash', 'python3','python3-dev', 'python3-venv', 'openssl', 'datamash', 'libssl-dev', 'libsasl2-dev', 'libssl-doc', 'git', 'software-properties-common']
       state: latest
     tags: packages
   - name: Install rsyslog
@@ -43,7 +44,7 @@
       state: present
   - name: Configure nginx
     template: 
-      src: templates/nginx.conf.j2
+      src: templates/nginx-balancer.conf.j2
       dest: /etc/nginx/nginx.conf
       backup: yes
     notify:
@@ -114,6 +115,8 @@
       proto: tcp
       
 - hosts: listener
+  vars:
+    web_url: http://example.com
   tasks:
   - name: Configure rsyslog core
     synchronize:
@@ -132,10 +135,37 @@
       owner: syslog
       group: adm
       state: directory
-      path: /var/log/received/
+      path: /var/log/paragun/
       mode: 0750
     notify:
     - Restart rsyslog
+  - name: Create token index
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/paragun/tokens/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Copy main logrotate script
+    template:
+      src: templates/logrotate/paragun-logs
+      dest: /etc/logrotate.d/paragun-logs
+  - name: Copy token handler logrotate script
+    template:
+      src: templates/logrotate/paragun-tokens
+      dest: /etc/logrotate.d/paragun-tokens
+  - cron:
+      name: Rotate and ship bulk logs
+      job: "logrotate -f /etc/logrotate.d/paragun-logs"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Rotate and ship token counts
+      job: "logrotate -f /etc/logrotate.d/paragun-tokens"
+      state: present
+      minute: "*/5"
   - name: Allow incoming traffic on UDP 514 from Balancers
     ufw:
       rule: allow
@@ -164,4 +194,94 @@
   - name: Restart rsyslog
     service: 
       name: rsyslog
+      state: restarted
+      
+- hosts: frontend
+  
+  vars:
+    app_owner: paragun_svc
+    app_dir: "/home/{{ app_owner }}"
+  
+  tasks:
+  - name: Install nginx, compilers and libraries
+    apt:
+      name: ['nginx', 'build-essential', 'libldap2-dev']
+      state: present
+  - name: Configure nginx
+    template: 
+      src: templates/nginx-frontend.conf.j2
+      dest: /etc/nginx/nginx.conf
+      backup: yes
+    notify:
+    - Restart nginx
+  - name: Configure Paragun nginx entry
+    template: 
+      src: templates/nginx-frontend-site.j2
+      dest: /etc/nginx/sites-enabled/paragun
+      backup: no
+    notify:
+    - Restart nginx
+  - name: Allow incoming traffic on TCP 80
+    ufw:
+      rule: allow
+      direction: in
+      port: 80
+      proto: tcp
+  - name: Allow incoming traffic on TCP 443
+    ufw:
+      rule: allow
+      direction: in
+      port: 443
+      proto: tcp
+      
+  - name: Create app service account
+    user:
+      name: "{{ app_owner }}"
+      create_home: yes
+      password_lock: yes
+      system: yes
+      state: present
+  
+  - name: Download app source
+    # WARNING: This will copy private keys around to remote boxes, fix this
+    synchronize:
+      src: /home/ubuntu/workspace/paragun
+      dest: "{{ app_dir }}/"
+  - name: Install app requirements
+    pip:
+      virtualenv: "{{ app_dir }}/PARAGUN"
+      virtualenv_command: "/usr/bin/python3 -m venv"
+      requirements: "{{ app_dir }}/paragun/requirements.txt"
+      state: latest
+  - name: Migrate DB
+    shell: "{{ app_dir }}/PARAGUN/bin/python manage.py migrate"
+    args:
+      chdir: "{{ app_dir }}/paragun"
+  - name: Collect staticfiles
+    shell: 'echo yes | {{ app_dir }}/PARAGUN/bin/python manage.py collectstatic'
+    args:
+      chdir: "{{ app_dir }}/paragun"
+  - name: Kill existing worker processe
+    shell: "kill -9 `ps aux |grep gunicorn |grep paragun | awk '{ print $2 }'`"
+    ignore_errors: yes
+  - name: Create app dir
+    file:
+      owner: '{{ app_owner }}'
+      group: '{{ app_owner }}'
+      state: directory
+      path: '{{ app_dir }}'
+      recurse: yes
+      mode: 0770
+  - name: Start frontend worker processes
+    gunicorn:
+      app: 'paragun.wsgi'
+      chdir: '{{ app_dir }}/paragun'
+      config: '{{ app_dir }}/paragun/paragun/gunicorn.cfg'
+      venv: '{{ app_dir }}/PARAGUN'
+      user: '{{ app_owner }}'
+    
+  handlers:
+  - name: Restart nginx
+    service: 
+      name: nginx
       state: restarted

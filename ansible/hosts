@@ -11,7 +11,7 @@
 #127.0.0.1
 
 [frontend]
-#127.0.0.1
+35.164.168.234 ansible_python_interpreter=/usr/bin/python3
 
 [writer]
 #127.0.0.1
