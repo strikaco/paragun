@@ -1,0 +1,32 @@
+# This ultimately informs users that their logs are being received,
+# so it should run at least once every 10 minutes.
+
+/var/log/paragun/tokens/received
+{
+        size 1
+        rotate 1
+        missingok
+        notifempty
+        delaycompress
+        compress
+        dateext
+        dateformat -%Y-%m-%d-%s
+        prerotate
+                datamash -s -W --group 1,2 count 3 sum 4 < received > /var/log/paragun/tokens/received_counts
+        endscript
+        postrotate
+                invoke-rc.d rsyslog rotate > /dev/null
+        endscript
+}
+
+/var/log/paragun/tokens/received_counts
+{
+        size 1
+        rotate 3
+        missingok
+        notifempty
+        postrotate
+                # Throw it against web interface to update last-seen counts
+                #curl -d "data=@/var/log/paragun/tokens/received_counts.1" {{ web_url }}
+        endscript
+}

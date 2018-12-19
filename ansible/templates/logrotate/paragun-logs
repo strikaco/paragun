@@ -1,0 +1,22 @@
+# For the sake of keeping up with higher-volume pipes, 
+# this should execute at least once every 5 minutes.
+
+#/usr/bin/s3cmd sync --config=/root/logrotate-s3cmd.config /var/log/paragun/*.gz "s3://s3_bucket/"
+
+/var/log/paragun/*.log
+{
+        size 1
+        rotate 24
+        missingok
+        notifempty
+        delaycompress
+        compress
+        dateext
+        dateformat -%Y-%m-%d-%s
+        postrotate
+                invoke-rc.d rsyslog rotate > /dev/null
+        endscript
+        lastaction
+                
+        endscript
+}
