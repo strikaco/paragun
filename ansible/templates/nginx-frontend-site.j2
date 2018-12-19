@@ -3,9 +3,9 @@ server {
     server_name 35.164.168.234;
 
     location = /favicon.ico { access_log off; log_not_found off; }
-    #location /static/ {
-    #    root /home/sammy/myprojectdir;
-    #}
+    location /static {
+        alias /var/www/paragun/static;
+    }
 
     location / {
         include proxy_params;

@@ -32,9 +32,9 @@ LISTEN_PORT = 65514
 SECRET_KEY = '2bn64i84he6q!qk_mg6x_rr@no@m-p9!6hxx)^ynprw*8!kw6*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'common.User'
 LOGIN_REDIRECT_URL = reverse_lazy('dashboard')
@@ -153,5 +153,5 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
-STATIC_ROOT = os.path.join(BASE_DIR, "common", "static")
+STATIC_ROOT = '/var/www/paragun/static/'
 STATIC_URL = '/static/'

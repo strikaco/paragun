@@ -261,8 +261,9 @@
     shell: 'echo yes | {{ app_dir }}/PARAGUN/bin/python manage.py collectstatic'
     args:
       chdir: "{{ app_dir }}/paragun"
-  - name: Kill existing worker processe
-    shell: "kill -9 `ps aux |grep gunicorn |grep paragun | awk '{ print $2 }'`"
+  - name: Kill existing worker processes
+    become: root
+    shell: "kill -9 `ps aux | grep gunicorn | grep paragun | awk '{ print $2 }'`"
     ignore_errors: yes
   - name: Create app dir
     file:
