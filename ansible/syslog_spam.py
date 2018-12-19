@@ -25,11 +25,13 @@ Aug  1 18:30:12 knight sshd[20449]: Failed password for illegal user user from 2
 """
 messages = [x for x in messages.split('\n') if x]
 
+uids = [uuid.uuid4() for x in range(15)]
+
 try:
 
     while True:
         # Send data
-        msg = choice(messages) + ' %s@P4R4GN' % uuid.uuid4()
+        msg = choice(messages) + ' %s@P4R4GN' % choice(uids)
         sent = sock.sendto(msg.encode(), server_address)
         print(msg)
         sleep(1)
