@@ -86,6 +86,12 @@ class Token(AbstractBaseModel):
     
     value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
     
+    @property
+    def expired(self):
+        if timezone.now() > self.expires:
+            return True
+        return False
+    
     def __str__(self):
         return self.value
     
@@ -96,7 +102,15 @@ class Token(AbstractBaseModel):
     def renew(self):
         self.expires = get_expiration()
         self.save()
-
+        
+        
+class Pulse(AbstractBaseModel):
+    
+    token = models.ForeignKey('Token', on_delete=models.CASCADE)
+    app = models.CharField(max_length=8)
+    count = models.PositiveIntegerField()
+    bytes = models.PositiveIntegerField()
+    
 
 class User(AbstractUser, AbstractBaseModel):
     
