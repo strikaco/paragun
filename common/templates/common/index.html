@@ -1,70 +1,93 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="jumbotron">
-  <h1 class="display-3">Log. Analyze. Act!</h1>
-  <p class="lead">Collect, archive and parse text-based logs from any device that produces them.</p>
-  <hr class="my-4">
-  <p>Paragun centralizes all of your log management needs into an easy-to-use cloud-based or on-premises platform. Stop worrying about agents, rotations and retention policies-- ship your logs to us and let us deal with it.</p>
-  <p class="lead">
-    <a class="btn btn-primary btn-lg" href="#" role="button">Learn more</a>
-  </p>
-</div>
+{% block body %}
 
-<div class="row">
-  <div class="col">
-    <div class="card">
-      <div class="card-body">
-        <h4 class="card-title">Monitor</h4>
-        <p class="card-text">Keep an eye on performance, behavior, and unusual activity across your infrastructure. Raise alerts based on configurable rules.</p>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col">
-    <div class="card">
-      <div class="card-body">
-        <h4 class="card-title">Troubleshoot</h4>
-        <p class="card-text">Get to the root cause of any issue. Watch how your components interact, correlate them with relevant metrics, and resolve issues faster.</p>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col">
-    <div class="card">
-      <div class="card-body">
-        <h4 class="card-title">Analyze and Report</h4>
-        <p class="card-text">Simplify investigation and KPI reporting with our one-stop shop for all your metrics and data, using a selection of query languages.</p>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- navbar -->
+{% include 'common/_nav.html' %}
+<!-- end navbar -->
 
-<div class="row">
-  <div class="col">
-    <div class="card mt-4">
-      <div class="card-body">
-        <h1 class="card-title">Welcome!</h1>
-  
-        <hr />
-  
+<div class="container main-content" id="main-copy">
+  <div class="row">
+    
+    <div class="col">
+      <div class="jumbotron">
+        <h1 class="display-3">Log. Analyze. Act!</h1>
+        <p class="lead">Collect, archive and parse text-based logs from any device that produces them.</p>
+        <hr class="my-4">
+        <p>Paragun centralizes all of your log management needs into an easy-to-use cloud-based or on-premises platform. Stop worrying about agents, rotations and retention policies-- ship your logs to us and let us deal with it.</p>
         <p class="lead">
-          Welcome to your server.
+          <a class="btn btn-primary btn-lg" href="#" role="button">Learn more</a>
         </p>
-        <p>
-          You are looking at web
-          presence, which can be expanded to a full-fledged site as needed.<br />
-        </p>
-        <p>
-          For more info, take your time to
-          peruse our extensive online <a href="/help/">documentation</a>.
-        </p>
+      </div>
+      
+      <div class="row">
+        <div class="col">
+          <div class="card">
+            <div class="card-body">
+              <h4 class="card-title">Monitor</h4>
+              <p class="card-text">Keep an eye on performance, behavior, and unusual activity across your infrastructure. Raise alerts based on configurable rules.</p>
+            </div>
+          </div>
+        </div>
         
+        <div class="col">
+          <div class="card">
+            <div class="card-body">
+              <h4 class="card-title">Troubleshoot</h4>
+              <p class="card-text">Get to the root cause of any issue. Watch how your components interact, correlate them with relevant metrics, and resolve issues faster.</p>
+            </div>
+          </div>
+        </div>
         
+        <div class="col">
+          <div class="card">
+            <div class="card-body">
+              <h4 class="card-title">Analyze and Report</h4>
+              <p class="card-text">Simplify investigation and KPI reporting with our one-stop shop for all your metrics and data, using a selection of query languages.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col">
+          <div class="card mt-4">
+            <div class="card-body">
+              <h1 class="card-title">Welcome!</h1>
+        
+              <hr />
+        
+              <p class="lead">
+                Welcome to your server.
+              </p>
+              <p>
+                You are looking at web
+                presence, which can be expanded to a full-fledged site as needed.<br />
+              </p>
+              <p>
+                For more info, take your time to
+                peruse our extensive online <a href="/help/">documentation</a>.
+              </p>
+              
+              
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      
+      <hr />
+      
+      <div class="row">
+        <div class="col-lg-12 col-sm-12">
+          <div class="p-3 pb-0 mb-3">
+            <p class="float-right"><a class="text-primary" href="#top">Back to Top</a></p>
+            <p class="mb-0"><span class="text-primary">Paragun</span></p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-  
 </div>
 
 
