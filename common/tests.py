@@ -19,4 +19,4 @@ class PulseUpdateViewTest(TestCase):
         }
         
         response = self.client.post(reverse('pulse-update'), data)
-        self.assertTrue(response.ok, 'Posting update should have yielded a 200 (returned %s).' % response.status_code)
+        self.assertTrue(response.status_code == 200, 'Posting update should have yielded a 200 (returned %s).' % response.status_code)

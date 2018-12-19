@@ -4,6 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, ListView, View
 import logging
 
@@ -22,13 +24,14 @@ class DashboardView(LoginRequiredMixin, ListView):
     def get_queryset(self, **kwargs):
         return self.request.user.tokens
         
+        
+@method_decorator(csrf_exempt, name='dispatch')
 class PulseUpdateView(View):
     
     def post(self, request, *args, **kwargs):
         logger = logging.getLogger(__name__)
         
         # TODO: Check for API key
-        import pudb;pudb.set_trace()
         
         # Get payload
         data = [x.strip() for x in request.POST.get('data', '').strip().split('\n') if x.strip() != '']
