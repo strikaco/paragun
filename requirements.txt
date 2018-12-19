@@ -1,0 +1,14 @@
+cffi==1.11.1
+Django==2.1.4
+dnspython==1.16.0
+eventlet==0.24.1
+greenlet==0.4.12
+gunicorn==19.9.0
+monotonic==1.5
+pkg-resources==0.0.0
+pyasn1==0.4.4
+pyasn1-modules==0.2.2
+python-ldap==3.1.0
+pytz==2018.7
+readline==6.2.4.1
+six==1.12.0
