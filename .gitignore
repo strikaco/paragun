@@ -3,6 +3,7 @@
 *.dat
 *.pem
 *.retry
+logrotate-s3cmd.config
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
