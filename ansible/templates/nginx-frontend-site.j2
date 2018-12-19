@@ -1,0 +1,14 @@
+server {
+    listen 80;
+    server_name 35.164.168.234;
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    #location /static/ {
+    #    root /home/sammy/myprojectdir;
+    #}
+
+    location / {
+        include proxy_params;
+        proxy_pass http://127.0.0.1:7000;
+    }
+}
