@@ -32,7 +32,7 @@ LISTEN_PORT = 65514
 SECRET_KEY = '2bn64i84he6q!qk_mg6x_rr@no@m-p9!6hxx)^ynprw*8!kw6*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 

@@ -336,6 +336,11 @@
     shell: 'echo yes | {{ app_dir }}/PARAGUN/bin/python manage.py collectstatic'
     args:
       chdir: "{{ app_dir }}/paragun"
+  - name: Turn off debug mode
+    lineinfile:
+      path: "{{ app_dir }}/paragun/paragun/settings.py"
+      regexp: '^DEBUG = '
+      line: 'DEBUG = False'
       
   - name: Kill existing worker processes
     become: root
