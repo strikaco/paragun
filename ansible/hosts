@@ -1,8 +1,9 @@
-[balancer]
-52.11.71.72 ansible_python_interpreter=/usr/bin/python3
+[gateway]
+paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
-[listener]
-52.26.55.115 ansible_python_interpreter=/usr/bin/python3
+[consumer]
+consumer1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
+consumer2.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
 [parser]
 #127.0.0.1
@@ -11,7 +12,7 @@
 #127.0.0.1
 
 [frontend]
-35.164.168.234 ansible_python_interpreter=/usr/bin/python3
+web1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
 [writer]
 #127.0.0.1

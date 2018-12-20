@@ -1,0 +1,20 @@
+# Load balance log traffic across available servers
+stream {
+    upstream consumers {
+    {% for server in groups.consumer %}
+        server {{ server }}:514;
+        #server {{ server }}:10514;
+        #server {{ server }}:20514;
+    {% endfor %}
+    }
+
+    server {
+        listen 514 udp;
+        #listen 10514 tcp;
+        #listen 20514 tcp;
+        
+        proxy_pass consumers;
+        proxy_timeout 1s;
+        proxy_responses 1;
+    }
+}

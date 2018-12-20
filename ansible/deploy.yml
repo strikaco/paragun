@@ -12,7 +12,7 @@
       upgrade: yes
   - name: Install core utilities
     apt: 
-      name: ['bash', 'python3','python3-dev', 'python3-venv', 'openssl', 'datamash', 'libssl-dev', 'libsasl2-dev', 'libssl-doc', 'git', 'software-properties-common']
+      name: ['bash', 'python3','python3-dev', 'python3-setuptools', 'python3-venv', 'libncurses5-dev', 'openssl', 'datamash', 'libssl-dev', 'libsasl2-dev', 'libssl-doc', 'git', 'build-essential', 'software-properties-common']
       state: latest
     tags: packages
   - name: Install rsyslog
@@ -36,7 +36,7 @@
       policy: deny
       log: no
       
-- hosts: balancer
+- hosts: gateway
   tasks:
   - name: Install nginx
     apt:
@@ -44,11 +44,48 @@
       state: present
   - name: Configure nginx
     template: 
-      src: templates/nginx-balancer.conf.j2
+      src: templates/nginx/nginx.conf.j2
       dest: /etc/nginx/nginx.conf
       backup: yes
     notify:
     - Restart nginx
+    
+  - name: Create streams-available folder
+    file:
+      state: directory
+      path: /etc/nginx/streams-available/
+      mode: 0755
+  - name: Create streams-enabled folder
+    file:
+      state: directory
+      path: /etc/nginx/streams-enabled/
+      mode: 0755
+  - name: Make gateway proxy available
+    template: 
+      src: templates/nginx/gateway/streams-available/gateway.j2
+      dest: /etc/nginx/streams-available/gateway
+    notify:
+    - Reload nginx
+  - name: Enable gateway proxy
+    file:
+      src: /etc/nginx/streams-available/gateway
+      dest: /etc/nginx/streams-enabled/gateway
+      state: link
+    notify:
+    - Reload nginx
+  - name: Make frontend proxy available
+    template: 
+      src: templates/nginx/gateway/sites-available/frontend.j2
+      dest: /etc/nginx/sites-available/frontend
+    notify:
+    - Reload nginx
+  - name: Enable frontend proxy
+    file:
+      src: /etc/nginx/sites-available/frontend
+      dest: /etc/nginx/sites-enabled/frontend
+      state: link
+    notify:
+    - Reload nginx
   - name: Allow incoming traffic on UDP 514
     ufw:
       rule: allow
@@ -67,11 +104,28 @@
       direction: in
       port: 20514
       proto: tcp
+  - name: Allow incoming traffic on TCP 80
+    ufw:
+      rule: allow
+      direction: in
+      port: 80
+      proto: tcp
+  - name: Allow incoming traffic on TCP 443
+    ufw:
+      rule: allow
+      direction: in
+      port: 443
+      proto: tcp
+      
   handlers:
   - name: Restart nginx
     service: 
       name: nginx
       state: restarted
+  - name: Reload nginx
+    service: 
+      name: nginx
+      state: reloaded
       
 - hosts: database
   tasks:
@@ -114,20 +168,20 @@
       port: 5432
       proto: tcp
       
-- hosts: listener
+- hosts: consumer
   vars:
-    web_url: http://example.com
+    web_url: http://paragun.labs.strika.co
   tasks:
   - name: Configure rsyslog core
     synchronize:
-      src: templates/rsyslog-listeners.conf
+      src: templates/rsyslog/rsyslog-consumers.conf
       dest: /etc/rsyslog.conf
     notify:
     - Restart rsyslog
-  - name: Configure rsyslog as listener
+  - name: Configure rsyslog as consumer
     synchronize:
-      src: templates/rsyslog-00-listener.conf
-      dest: /etc/rsyslog.d/00-listener.conf
+      src: templates/rsyslog/rsyslog-00-consumer.conf
+      dest: /etc/rsyslog.d/00-consumer.conf
     notify:
     - Restart rsyslog
   - name: Create output directory
@@ -139,23 +193,25 @@
       mode: 0750
     notify:
     - Restart rsyslog
-  - name: Create token index
+  - name: Create metrics index
     file:
       owner: syslog
       group: adm
       state: directory
-      path: /var/log/paragun/tokens/
+      path: /var/log/paragun/metrics/
       mode: 0750
     notify:
     - Restart rsyslog
+    
   - name: Copy main logrotate script
     template:
       src: templates/logrotate/paragun-logs
       dest: /etc/logrotate.d/paragun-logs
   - name: Copy token handler logrotate script
     template:
-      src: templates/logrotate/paragun-tokens
-      dest: /etc/logrotate.d/paragun-tokens
+      src: templates/logrotate/paragun-metrics
+      dest: /etc/logrotate.d/paragun-metrics
+      
   - cron:
       name: Rotate and ship bulk logs
       job: "logrotate -f /etc/logrotate.d/paragun-logs"
@@ -163,33 +219,29 @@
       minute: "*/5"
   - cron:
       name: Rotate and ship token counts
-      job: "logrotate -f /etc/logrotate.d/paragun-tokens"
+      job: "logrotate -f /etc/logrotate.d/paragun-metrics"
       state: present
       minute: "*/5"
-  - name: Allow incoming traffic on UDP 514 from Balancers
+      
+  - name: Allow incoming traffic on UDP 514
     ufw:
       rule: allow
       direction: in
       port: 514
       proto: udp
-      src: '{{ item }}'
-    with_items: '{{ groups.balancer }}'
-  - name: Allow incoming traffic on TCP 10514 from Balancers
+  - name: Allow incoming traffic on TCP 10514
     ufw:
       rule: allow
       direction: in
       port: 10514
       proto: tcp
-      src: '{{ item }}'
-    with_items: '{{ groups.balancer }}'
-  - name: Allow incoming traffic on TCP 20514 (RELP) from Balancers
+  - name: Allow incoming traffic on TCP 20514 (RELP)
     ufw:
       rule: allow
       direction: in
       port: 20514
       proto: tcp
-      src: '{{ item }}'
-    with_items: '{{ groups.balancer }}'
+      
   handlers:
   - name: Restart rsyslog
     service: 
@@ -208,19 +260,27 @@
       name: ['nginx', 'build-essential', 'libldap2-dev']
       state: present
   - name: Configure nginx
-    template: 
-      src: templates/nginx-frontend.conf.j2
+    template:
+      src: templates/nginx/nginx.conf.j2
       dest: /etc/nginx/nginx.conf
       backup: yes
     notify:
     - Restart nginx
-  - name: Configure Paragun nginx entry
+    
+  - name: Make frontend site available
     template: 
-      src: templates/nginx-frontend-site.j2
-      dest: /etc/nginx/sites-enabled/paragun
-      backup: no
+      src: templates/nginx/frontend/sites-available/frontend.j2
+      dest: /etc/nginx/sites-available/frontend
     notify:
-    - Restart nginx
+    - Reload nginx
+  - name: Enable frontend site
+    file:
+      src: /etc/nginx/sites-available/frontend
+      dest: /etc/nginx/sites-enabled/frontend
+      state: link
+    notify:
+    - Reload nginx
+    
   - name: Allow incoming traffic on TCP 80
     ufw:
       rule: allow
@@ -242,6 +302,21 @@
       system: yes
       state: present
   
+  - name: Create app dir
+    file:
+      owner: '{{ app_owner }}'
+      group: '{{ app_owner }}'
+      state: directory
+      path: '{{ app_dir }}'
+      recurse: yes
+      mode: 0770
+  - name: Create app log dir
+    file:
+      owner: '{{ app_owner }}'
+      group: '{{ app_owner }}'
+      state: directory
+      path: '/var/log/paragun/'
+      mode: 0775
   - name: Download app source
     # WARNING: This will copy private keys around to remote boxes, fix this
     synchronize:
@@ -261,28 +336,30 @@
     shell: 'echo yes | {{ app_dir }}/PARAGUN/bin/python manage.py collectstatic'
     args:
       chdir: "{{ app_dir }}/paragun"
+      
   - name: Kill existing worker processes
     become: root
-    shell: "kill -9 `ps aux | grep gunicorn | grep paragun | awk '{ print $2 }'`"
+    #shell: "kill -9 `ps aux | grep gunicorn | grep paragun | awk '{ print $2 }'`"
+    shell: "pkill -TERM $(sudo cat {{ app_dir }}/paragun/gunicorn.pid)"
     ignore_errors: yes
-  - name: Create app dir
-    file:
-      owner: '{{ app_owner }}'
-      group: '{{ app_owner }}'
-      state: directory
-      path: '{{ app_dir }}'
-      recurse: yes
-      mode: 0770
+    
   - name: Start frontend worker processes
-    gunicorn:
-      app: 'paragun.wsgi'
-      chdir: '{{ app_dir }}/paragun'
-      config: '{{ app_dir }}/paragun/paragun/gunicorn.cfg'
-      venv: '{{ app_dir }}/PARAGUN'
-      user: '{{ app_owner }}'
+    shell: "{{ app_dir }}/PARAGUN/bin/gunicorn -D -c {{ app_dir }}/paragun/paragun/gunicorn.cfg -u {{ app_owner }} --chdir {{ app_dir }}/paragun paragun.wsgi"
+    
+    # FIXME: This stopped working all of a sudden?
+    #gunicorn:
+    #  app: 'paragun.wsgi'
+    #  chdir: '{{ app_dir }}/paragun'
+    #  config: '{{ app_dir }}/paragun/paragun/gunicorn.cfg'
+    #  venv: '{{ app_dir }}/PARAGUN'
+    #  user: '{{ app_owner }}'
     
   handlers:
   - name: Restart nginx
     service: 
       name: nginx
       state: restarted
+  - name: Reload nginx
+    service:
+      name: nginx
+      state: reloaded

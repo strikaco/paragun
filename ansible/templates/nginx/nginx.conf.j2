@@ -87,7 +87,7 @@ http {
   # This is only used when you don't override it on a server{} level
   # Default: logs/access.log combined
   # https://nginx.org/en/docs/http/ngx_http_log_module.html#access_log
-  #access_log logs/access.log main;
+  access_log /var/log/nginx/access.log main;
 
   # How long to allow each connection to stay idle.
   # Longer values are better for each individual client, particularly for SSL,
@@ -119,22 +119,4 @@ http {
 
 }
 
-# Load balance traffic across available servers
-stream {
-    upstream nodes {
-        {% for server in groups.listener %}
-        server {{ server }}:514;
-        #server {{ server }}:10514;
-        #server {{ server }}:20514;
-        {% endfor %}
-    }
-
-    server {
-        listen 514 udp;
-        #listen 10514 tcp;
-        #listen 20514 tcp;
-        proxy_pass nodes;
-        proxy_timeout 1s;
-        proxy_responses 1;
-    }
-}
+include streams-enabled/*;
