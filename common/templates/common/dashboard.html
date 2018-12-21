@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+<a class="btn btn-primary btn-block" href="{% url 'token-create' %}">Generate</a>
+<hr />
+
 {% for object in object_list %}
 <div class="card border-light mb-3">
   
@@ -14,8 +18,12 @@
       </div>
     </div>
     
-    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+    <p class="card-text">{% firstof object.notes 'No information provided.' %}</p>
   </div>
+</div>
+{% empty %}
+<div class="card border-light">
+  <p class="lead p-3">No tokens found!</p>
 </div>
 {% endfor %}
 

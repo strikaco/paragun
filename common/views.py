@@ -4,12 +4,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, ListView, FormView, View
+from django.views.generic.edit import CreateView, UpdateView
 import logging
 
 # Create your views here.
@@ -56,6 +57,32 @@ class DashboardView(LoginRequiredMixin, ListView):
     def get_queryset(self, **kwargs):
         return self.request.user.tokens
         
+
+class TokenCreateView(CreateView):
+    model = Token
+    fields = ['notes']
+    page_title = "Create Token"
+    success_url = reverse_lazy('dashboard')
+    template_name = 'common/generic_form.html'
+    
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        
+        super().form_valid(form)
+        
+        if self.object:
+            messages.success(self.request, "Your new token has been created.")
+        else:
+            messages.error(self.request, "Your token could not be created.")
+            
+        return HttpResponseRedirect(self.success_url)
+    
+class TokenUpdateView(UpdateView):
+    model = Token
+    fields = ['notes']
+    page_title = "Update Token"
+    template_name = 'common/generic_form.html'
+    
         
 @method_decorator(csrf_exempt, name='dispatch')
 class PulseUpdateView(View):

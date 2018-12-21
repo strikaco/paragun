@@ -1,4 +1,4 @@
-from common.models import User
+from common.models import User, Token
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UsernameField
 

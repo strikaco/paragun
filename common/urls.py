@@ -19,6 +19,8 @@ from django.urls import path, include
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name="dashboard"),
+    path('tokens/create/', TokenCreateView.as_view(), name="token-create"),
+    path('tokens/update/<uuid:token>/', TokenUpdateView.as_view(), name="token-update"),
     path('pulse/', PulseUpdateView.as_view(), name="pulse-update"),
     path('', IndexView.as_view(), name="index"),
 ]
