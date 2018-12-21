@@ -1,20 +1,52 @@
+from common.forms import *
 from common.models import *
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import TemplateView, ListView, View
+from django.views.generic import TemplateView, ListView, FormView, View
 import logging
 
 # Create your views here.
 class IndexView(TemplateView):
     template_name = 'common/index.html'
     
-class RegisterView(TemplateView):
-    template_name = 'common/base.html'
+    
+class RegisterView(FormView):
+    form_class = RegisterForm
+    success_url = reverse_lazy('login')
+    template_name = 'registration/register.html'
+    
+    def form_valid(self, form):
+        logger = logging.getLogger(__name__)
+        
+        # Get values provided
+        username = form.cleaned_data['username']
+        password = form.cleaned_data['password1']
+        email = form.cleaned_data.get('email', '')
+        
+        # Create account
+        account = User.objects.create_user(username=username, email=email, password=password)
+        
+        # If unsuccessful, display error message to user
+        if not account:
+            messages.error(self.request, "Your account could not be created due to a server error.")
+            logger.error('Account for %s was not created successfully.' % username)
+            
+            # Call the Django "form failure" hook
+            return self.form_invalid(form)
+            
+        # Inform user of success
+        messages.success(self.request, "Your account was successfully created! Please log in now.")
+        
+        # Redirect the user to the login page
+        return super().form_valid(form)
+        
     
 class DashboardView(LoginRequiredMixin, ListView):
     model = Token
