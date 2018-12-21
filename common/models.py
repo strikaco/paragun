@@ -114,6 +114,8 @@ class Pulse(AbstractBaseModel):
 
 class User(AbstractUser, AbstractBaseModel):
     
+    email = models.EmailField(unique=True)
+    
     @property
     def tokens(self):
         return Token.objects.filter(enabled=True, users__in=[self]).order_by('-expires')
