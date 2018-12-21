@@ -80,11 +80,12 @@ class Token(AbstractBaseModel):
     furnish logs for ingestion.
     
     """
-    users = models.ManyToManyField('User', help_text="What user(s) are responsible for the logs submitted using this token?")
+    user = models.ForeignKey('User', on_delete=models.CASCADE, help_text="What user is responsible for the creation of this token?")
     hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     
     value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
+    notes = models.CharField(max_length=160, blank=True, null=True, help_text="Any notes about the reason for this token.")
     
     @property
     def expired(self):
@@ -118,4 +119,4 @@ class User(AbstractUser, AbstractBaseModel):
     
     @property
     def tokens(self):
-        return Token.objects.filter(enabled=True, users__in=[self]).order_by('-expires')
+        return Token.objects.filter(enabled=True, user=self).order_by('-expires')
