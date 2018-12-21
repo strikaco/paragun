@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 
@@ -14,11 +15,32 @@
         <h4 class="card-title">{{ object }} <small class="text-muted">{{ object.expires|timeuntil }} left</small></h4>
       </div>
       <div class="col-lg-3 col-sm-12">
-        <button type="button" class="btn btn-primary btn-block">Renew / Update</button>
+        <a class="btn btn-primary btn-block" href="{% url 'token-update' object.id %}">Renew / Update</a>
       </div>
     </div>
     
     <p class="card-text">{% firstof object.notes 'No information provided.' %}</p>
+    
+    <h6>Activity <span class="inlinesparkline">{% for metric in object.statistics.hourly %}{{ metric.num_events }},{% empty %}0,0,0,0,0,0,0{% endfor %}</span></h6>
+    
+    {% with metrics=object.statistics.daily_by_app %}
+    {% regroup metrics by ts as metrics_list %}
+    <ul>
+      {% for metric in metrics_list %}
+      <li>{{ metric.grouper|date:"Y-m-d" }}</li>
+      <ul>
+        {% for stat in metric.list %}
+        <li>
+          {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
+        </li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </ul>
+    {% endwith %}
+    
+    {% for tag in object.tag_list %}<span class="badge badge-light">{{ tag }}</span> {% endfor %}
+    
   </div>
 </div>
 {% empty %}
@@ -45,5 +67,19 @@
   
 </div>
 
+<hr />
 
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript" src="{% static 'js/jquery.sparkline.min.js' %}"></script>
+
+<script type="text/javascript">
+    $(function() {
+        /** This code runs when everything has been loaded on the page */
+        /* Inline sparklines take their values from the contents of the tag */
+        $('.inlinesparkline').sparkline();
+    });
+        
+</script>
 {% endblock %}

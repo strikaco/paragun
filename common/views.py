@@ -56,12 +56,14 @@ class DashboardView(LoginRequiredMixin, ListView):
     paginate_by = 25
     
     def get_queryset(self, **kwargs):
-        return self.request.user.tokens
+        # Get tokens that belong to this user
+        qs = Token.objects.filter(user=self.request.user).order_by('-created')
+        return qs
         
 
-class TokenCreateView(CreateView):
+class TokenCreateView(LoginRequiredMixin, CreateView):
     model = Token
-    fields = ['notes']
+    fields = ['notes', 'tags']
     page_title = "Create Token"
     success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
@@ -78,11 +80,21 @@ class TokenCreateView(CreateView):
             
         return HttpResponseRedirect(self.success_url)
     
-class TokenUpdateView(UpdateView):
+class TokenUpdateView(LoginRequiredMixin, UpdateView):
     model = Token
-    fields = ['notes']
+    fields = ['notes', 'tags']
     page_title = "Update Token"
+    success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
+    
+    def get_queryset(self, **kwargs):
+        # Get only those tokens that the current user owns
+        return self.request.user.tokens
+        
+    def form_valid(self, form):
+        super().form_valid(form)
+        messages.success(self.request, "Your access token expiration and details have been refreshed.")
+        return HttpResponseRedirect(self.success_url)
     
         
 @method_decorator(csrf_exempt, name='dispatch')
