@@ -1,6 +1,7 @@
 from datetime import timedelta
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.functions import TruncDay, TruncHour
 from django.utils import timezone
 from uuid import uuid4
 
@@ -34,16 +35,18 @@ class AbstractBaseModel(models.Model):
     id = models.BigAutoField(primary_key=True)
     
     created = models.DateTimeField(default=timezone.now, help_text="Date and time of object creation.")
-    updated = models.DateTimeField(default=timezone.now, help_text="Date and time of last object modification.")
+    updated = models.DateTimeField(auto_now=True, help_text="Date and time of last object modification.")
     enabled = models.BooleanField(default=True, help_text="Whether or not this object should be enabled.")
+    
+    tags = models.CharField(max_length=160, blank=True, default='', help_text="Comma-separated list of any custom tags related to this object.")
     
     # Custom object handler
     objects = AbstractBaseModelManager()
     
-    def save(self, *args, **kwargs):
-        # Updates the last modified timestamp
-        self.updated = timezone.now()
-        super().save(*args, **kwargs)
+    @property
+    def tag_list(self):
+        terms = (x.strip() for x in self.tags.split(','))
+        return tuple(x for x in terms)
 
 
 class Host(AbstractBaseModel):
@@ -72,7 +75,36 @@ class Host(AbstractBaseModel):
         self.hostname = self.hostname.strip().lower()
         self.domain = self.domain.strip().lower()
         super().save(*args, **kwargs)
+        
+        
+class Pulse(AbstractBaseModel):
+    
+    token = models.ForeignKey('Token', on_delete=models.CASCADE, related_name='metrics')
+    app = models.CharField(max_length=8)
+    count = models.PositiveIntegerField()
+    bytes = models.PositiveIntegerField()
 
+
+class Statistics(object):
+    
+    def __init__(self, obj):
+        self.obj = obj
+        self.limit = timezone.now() - timedelta(days=7)
+        
+        self.queryset = self.obj.metrics.filter(created__gte=self.limit)
+        
+    def daily(self):
+        return self.queryset.annotate(ts=TruncDay('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+        
+    def hourly(self):
+        return self.queryset.annotate(ts=TruncHour('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+        
+    def daily_by_app(self):
+        return self.queryset.annotate(ts=TruncDay('created')).values('ts', 'app').order_by('ts', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+    
+    def hourly_by_app(self):
+        return self.queryset.annotate(ts=TruncHour('created')).values('ts', 'app').order_by('ts', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+    
 
 class Token(AbstractBaseModel):
     """
@@ -80,11 +112,12 @@ class Token(AbstractBaseModel):
     furnish logs for ingestion.
     
     """
+    id = models.CharField(max_length=255, primary_key=True, default=uuid4, help_text="Token string, as UUID4.")
+    
     user = models.ForeignKey('User', on_delete=models.CASCADE, help_text="What user is responsible for the creation of this token?")
     hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     
-    value = models.CharField(max_length=255, default=uuid4, unique=True, help_text="Token string, as UUID4.")
     notes = models.CharField(max_length=160, blank=True, null=True, help_text="Any notes about the reason for this token.")
     
     @property
@@ -92,9 +125,13 @@ class Token(AbstractBaseModel):
         if timezone.now() > self.expires:
             return True
         return False
+        
+    @property
+    def value(self):
+        return self.id
     
     def __str__(self):
-        return self.value
+        return self.id
     
     @classmethod
     def generate(cls):
@@ -104,13 +141,8 @@ class Token(AbstractBaseModel):
         self.expires = get_expiration()
         self.save()
         
-        
-class Pulse(AbstractBaseModel):
-    
-    token = models.ForeignKey('Token', on_delete=models.CASCADE)
-    app = models.CharField(max_length=8)
-    count = models.PositiveIntegerField()
-    bytes = models.PositiveIntegerField()
+    def statistics(self, *args, **kwargs):
+        return Statistics(self)
     
 
 class User(AbstractUser, AbstractBaseModel):
