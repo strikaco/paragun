@@ -113,7 +113,7 @@ class TokenDumpView(View):
         # TODO: Check for API key
         
         # Get all valid tokens
-        tokens = Token.objects.enabled().order_by('id').iterator()
+        tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
         
         # Build the lookup table
         table = { "version" : int(time()),
