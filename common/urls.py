@@ -22,5 +22,6 @@ urlpatterns = [
     path('tokens/create/', TokenCreateView.as_view(), name="token-create"),
     path('tokens/update/<str:pk>/', TokenUpdateView.as_view(), name="token-update"),
     path('pulse/', PulseUpdateView.as_view(), name="pulse-update"),
+    path('api/tokens/', TokenDumpView.as_view(), name="token-dump"),
     path('', IndexView.as_view(), name="index"),
 ]

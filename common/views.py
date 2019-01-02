@@ -4,13 +4,16 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, ListView, FormView, View
 from django.views.generic.edit import CreateView, UpdateView
+
+from time import time
+import json
 import logging
 
 # Create your views here.
@@ -63,7 +66,7 @@ class DashboardView(LoginRequiredMixin, ListView):
 
 class TokenCreateView(LoginRequiredMixin, CreateView):
     model = Token
-    fields = ['notes', 'tags']
+    fields = ['retention', 'notes', 'tags']
     page_title = "Create Token"
     success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
@@ -82,7 +85,7 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
     
 class TokenUpdateView(LoginRequiredMixin, UpdateView):
     model = Token
-    fields = ['notes', 'tags']
+    fields = ['retention', 'notes', 'tags']
     page_title = "Update Token"
     success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
@@ -95,7 +98,32 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
         super().form_valid(form)
         messages.success(self.request, "Your access token expiration and details have been refreshed.")
         return HttpResponseRedirect(self.success_url)
+        
+
+class TokenDumpView(View):
     
+    def get(self, request, *args, **kwargs):
+        """
+        Return a list of valid tokens in rsyslog lookup table format (JSON).
+        
+        Returns:
+            table (JSON): Token validity lookup table.
+        
+        """
+        # TODO: Check for API key
+        
+        # Get all valid tokens
+        tokens = Token.objects.enabled().order_by('id').iterator()
+        
+        # Build the lookup table
+        table = { "version" : int(time()),
+            "nomatch" : False,
+            "type" : "string",
+            "table" : [{"index" : token.id, "value" : token.enabled } for token in tokens]
+        }
+        
+        # Return it
+        return JsonResponse(table)
         
 @method_decorator(csrf_exempt, name='dispatch')
 class PulseUpdateView(View):
