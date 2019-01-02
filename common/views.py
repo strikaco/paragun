@@ -116,8 +116,8 @@ class TokenDumpView(View):
         tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
         
         # Build the lookup table
-        table = { "version" : int(time()),
-            "nomatch" : False,
+        table = { "version" : 1,
+            "nomatch" : 0,
             "type" : "string",
             "table" : [{"index" : token.id, "value" : token.enabled } for token in tokens]
         }
@@ -125,11 +125,16 @@ class TokenDumpView(View):
         # Return it
         return JsonResponse(table)
         
+        
 class TokenRetentionView(View):
     
     def get(self, request, *args, **kwargs):
         """
-        Returns a lookup table of the retention period (as int) for all valid tokens.
+        Returns a lookup table of the retention period (in seconds, as int) for 
+        all logs by token.
+        
+        Returns:
+            table (JSON): Log retention lookup table.
         
         """
         # TODO: Check for API key
@@ -138,7 +143,7 @@ class TokenRetentionView(View):
         tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
         
         # Build the lookup table
-        table = { "version" : int(time()),
+        table = { "version" : 1,
             "nomatch" : 365,
             "type" : "string",
             "table" : [{"index" : token.id, "value" : token.retain * 86400 } for token in tokens]
