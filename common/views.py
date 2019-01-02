@@ -125,6 +125,29 @@ class TokenDumpView(View):
         # Return it
         return JsonResponse(table)
         
+class TokenRetentionView(View):
+    
+    def get(self, request, *args, **kwargs):
+        """
+        Returns a lookup table of the retention period (as int) for all valid tokens.
+        
+        """
+        # TODO: Check for API key
+        
+        # Get all valid tokens
+        tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
+        
+        # Build the lookup table
+        table = { "version" : int(time()),
+            "nomatch" : 365,
+            "type" : "string",
+            "table" : [{"index" : token.id, "value" : token.retain * 86400 } for token in tokens]
+        }
+        
+        # Return it
+        return JsonResponse(table)
+        
+        
 @method_decorator(csrf_exempt, name='dispatch')
 class PulseUpdateView(View):
     
