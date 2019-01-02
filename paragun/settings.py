@@ -16,6 +16,26 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s')
 logger = logging.getLogger(__name__)
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/paragun/django.log',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'propagate': True,
+        },
+    },
+}
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
