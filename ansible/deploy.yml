@@ -202,6 +202,35 @@
       mode: 0750
     notify:
     - Restart rsyslog
+  - name: Create lookups directory
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/paragun/lookups/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create stub lookup table for valid tokens
+    copy:
+      force: no
+      src: templates/rsyslog/blank_lookup.json
+      dest: /var/log/paragun/lookups/token_validity.json
+      owner: syslog
+      group: adm
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create stub lookup table for token retention
+    copy:
+      force: no
+      src: templates/rsyslog/blank_lookup.json
+      dest: /var/log/paragun/lookups/token_retention.json
+      owner: syslog
+      group: adm
+      mode: 0750
+    notify:
+    - Restart rsyslog
     
   - name: Copy main logrotate script
     template:
@@ -220,6 +249,16 @@
   - cron:
       name: Rotate and ship token counts
       job: "logrotate -f /etc/logrotate.d/paragun-metrics"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Download valid token lists
+      job: "curl -o /var/log/paragun/lookups/token_validity.json {{ web_url }}/api/tokens/valid/"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Download log retention lists
+      job: "curl -o /var/log/paragun/lookups/token_retention.json {{ web_url }}/api/tokens/retention/"
       state: present
       minute: "*/5"
       
@@ -317,11 +356,20 @@
       state: directory
       path: '/var/log/paragun/'
       mode: 0775
+  - name: Create app log file
+    file:
+      owner: '{{ app_owner }}'
+      group: root
+      state: file
+      path: '/var/log/paragun/django.log'
+      mode: 0640
   - name: Download app source
     # WARNING: This will copy private keys around to remote boxes, fix this
     synchronize:
       src: /home/ubuntu/workspace/paragun
       dest: "{{ app_dir }}/"
+      archive: no
+      recursive: yes
   - name: Install app requirements
     pip:
       virtualenv: "{{ app_dir }}/PARAGUN"
