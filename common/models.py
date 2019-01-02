@@ -117,6 +117,7 @@ class Token(AbstractBaseModel):
     user = models.ForeignKey('User', on_delete=models.CASCADE, help_text="What user is responsible for the creation of this token?")
     hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
+    retain = models.PositiveIntegerField(default=365, help_text="How long (in days) to keep logs submitted under this token.")
     
     notes = models.CharField(max_length=160, blank=True, null=True, help_text="Any notes about the reason for this token.")
     
@@ -125,6 +126,10 @@ class Token(AbstractBaseModel):
         if timezone.now() > self.expires:
             return True
         return False
+        
+    @property
+    def purge_date(self):
+        return timezone.now() - timedelta(days=self.retain)
         
     @property
     def value(self):
