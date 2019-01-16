@@ -19,15 +19,34 @@ import re
 
 # Create your views here.
 class IndexView(TemplateView):
+    """
+    Displays the generic sales pitch page.
+    
+    """
     template_name = 'common/index.html'
     
     
 class RegisterView(FormView):
+    """
+    Displays the account registration page.
+    
+    """
     form_class = RegisterForm
     success_url = reverse_lazy('login')
     template_name = 'registration/register.html'
     
     def form_valid(self, form):
+        """
+        Most of this could likely be handled by stock Django but it won't emit
+        messages confirming success or denial, hence this extension.
+        
+        Args:
+            form (Form): Django form object.
+            
+        Returns:
+            HttpResponse
+        
+        """
         logger = logging.getLogger(__name__)
         
         # Get values provided
@@ -54,31 +73,56 @@ class RegisterView(FormView):
         
     
 class DashboardView(LoginRequiredMixin, ListView):
+    """
+    Displays a summary of the current authenticated user's tokens.
+    
+    """
     model = Token
     page_title = "Dashboard"
     template_name = 'common/dashboard.html'
     paginate_by = 25
     
     def get_queryset(self, **kwargs):
-        # Get tokens that belong to this user
-        qs = Token.objects.filter(user=self.request.user).order_by('-created')
-        return qs
+        """
+        Restricts tokens available for access to only those owned by user.
+        
+        Returns:
+            tokens (QuerySet): Tokens owned by current user.
+            
+        """
+        return self.request.user.tokens.order_by('-created')
         
 
 class TokenCreateView(LoginRequiredMixin, CreateView):
+    """
+    Displays the form to allow creation of new tokens.
+    
+    """
     model = Token
     fields = ['retain', 'notes', 'tags']
     page_title = "Create Token"
-    #success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
     
     def form_valid(self, form):
+        """
+        Creates token if all fields are valid.
+        
+        Args:
+            form (Form)
+            
+        Returns:
+            HttpResponse
+        
+        """
         form.instance.user = self.request.user
+        
+        # Figure out where to redirect user
         self.success_url = self.request.POST.get('next', '')
         if not self.success_url: self.success_url = reverse('dashboard')
         
         super().form_valid(form)
         
+        # TODO: Better backend logging re: reasons for failure
         if self.object:
             messages.success(self.request, "Your new token has been created.")
         else:
@@ -86,25 +130,55 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
             
         return HttpResponseRedirect(self.success_url)
     
+    
 class TokenUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    Displays form for user to modify or update a token they own.
+    
+    """
     model = Token
     fields = ['retain', 'notes', 'tags']
     page_title = "Update Token"
     template_name = 'common/generic_form.html'
     
     def get_queryset(self, **kwargs):
-        # Get only those tokens that the current user owns
+        """
+        Restricts tokens available for access to only those owned by user.
+        
+        Returns:
+            tokens (QuerySet): Tokens owned by current user.
+            
+        """
         return self.request.user.tokens
         
     def form_valid(self, form):
+        """
+        Updates the current token with new information.
+        
+        Args:
+            form (Form)
+            
+        Returns:
+            HttpResponse
+            
+        """
+        # Figure out where to redirect user
         self.success_url = self.request.POST.get('next', reverse('dashboard'))
         
         super().form_valid(form)
+        
+        # Reset expiration timer on every update
         self.object.renew()
+        
         messages.success(self.request, "Your access token expiration and details have been refreshed.")
         return HttpResponseRedirect(self.success_url)
         
+        
 class TokenDetailView(LoginRequiredMixin, DetailView):
+    """
+    Displays detailed information about a particular token.
+    
+    """
     model = Token
     page_title = "Token Detail"
     template_name = 'common/token_detail.html'
@@ -187,7 +261,7 @@ class PulseUpdateView(View):
             reported_tokens = set()
             for row in rows:
                 reported_tokens.add(row[0].strip())
-            logger.info("Found: %s" % reported_tokens)
+
         except Exception as e:
             logger.error("Error extracting tokens from payload:")
             logger.error(e, exc_info=True)
@@ -197,7 +271,9 @@ class PulseUpdateView(View):
         try:
             valid_tokens = tuple(x for x in Token.objects.filter(id__in=reported_tokens) if not x.expired)
             if not valid_tokens:
-                return HttpResponseBadRequest("No valid tokens were found in the metrics payload.\n%s" % reported_tokens)
+                logger.debug("No valid tokens reported in metrics update.")
+                return HttpResponseBadRequest()
+                
         except Exception as e:
             logger.error("Error converting token strings to Token objects:")
             logger.error(e, exc_info=True)
@@ -210,7 +286,7 @@ class PulseUpdateView(View):
                     row = [x.strip() for x in row]
                     
                     try:
-                        token_str, app, count, bytes = row
+                        token_str, host, app, count, bytes = row
                     except ValueError as e:
                         logger.error(e, exc_info=True)
                         return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
@@ -222,7 +298,7 @@ class PulseUpdateView(View):
                         continue
                     
                     # Create new pulse
-                    Pulse.objects.create(token=token, app=app, count=count, bytes=bytes)
+                    Pulse.objects.create(token=token, host=host, app=app, count=count, bytes=bytes)
                     
         except Exception as e:
             logger.error(e, exc_info=True)

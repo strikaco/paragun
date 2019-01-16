@@ -6,7 +6,7 @@
 /var/log/paragun/*.log
 {
         size 1
-        rotate 24
+        rotate 5
         missingok
         notifempty
         delaycompress

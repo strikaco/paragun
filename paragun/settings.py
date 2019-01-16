@@ -33,23 +33,17 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'formatter': 'verbose',
             'filename': '/var/log/paragun/django.log',
-        },
-        'debug_file': {
-            'class': 'logging.FileHandler',
-            'formatter': 'verbose',
-            'level': 'DEBUG',
-            'filename': '/var/log/paragun/django.log',
-        },
+        }
     },
     'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': True,
-        },
         '': {
-            'handlers': ['file', 'debug_file'],
-            'propagate': True,
-        }
+            'level': 'INFO',
+            'handlers': ['file', 'console'],
+        },
+        #'django': {
+        #    'handlers': ['file'],
+        #    'propagate': True,
+        #},
     },
 }
 
