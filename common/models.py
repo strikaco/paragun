@@ -120,6 +120,7 @@ class Token(AbstractBaseModel):
     hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     retain = models.PositiveIntegerField(default=365, help_text="How long (in days) to keep logs submitted under this token.")
+    backup_email = models.EmailField(help_text="Email address of a second party or group to send expiration warnings to.", default='', blank=True)
     
     notes = models.CharField(max_length=160, blank=True, null=True, help_text="Any notes about the reason for this token.")
     
@@ -145,7 +146,7 @@ class Token(AbstractBaseModel):
         return uuid4()
         
     def get_absolute_url(self):
-        return reverse('token-detail', args={'pk': self.id})
+        return reverse('token-detail', args=(self.id,))
     
     def renew(self):
         self.expires = get_expiration()
