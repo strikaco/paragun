@@ -65,7 +65,7 @@ SECRET_KEY = '2bn64i84he6q!qk_mg6x_rr@no@m-p9!6hxx)^ynprw*8!kw6*'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['paragun.labs.strika.co']
+ALLOWED_HOSTS = ['paragun.labs.strika.co', 'localhost']
 
 AUTH_USER_MODEL = 'common.User'
 LOGIN_REDIRECT_URL = reverse_lazy('dashboard')
