@@ -1,5 +1,5 @@
 { "version" : 1,
   "nomatch" : "0",
   "type" : "string",
-  "table" : []
+  "table" : [{"index" : "null", "value" : "0"}]
 }
