@@ -99,7 +99,7 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
     
     """
     model = Token
-    fields = ['retain', 'notes', 'tags']
+    fields = ['retain', 'notes', 'tags', 'backup_email']
     page_title = "Create Token"
     template_name = 'common/generic_form.html'
     
@@ -137,7 +137,7 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
     
     """
     model = Token
-    fields = ['retain', 'notes', 'tags']
+    fields = ['retain', 'notes', 'tags', 'backup_email']
     page_title = "Update Token"
     template_name = 'common/generic_form.html'
     
