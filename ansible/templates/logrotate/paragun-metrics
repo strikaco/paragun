@@ -12,7 +12,7 @@
         dateext
         dateformat -%Y-%m-%d-%s
         prerotate
-                datamash -s -W --group 1,2 count 3 sum 4 < /var/log/paragun/metrics/index > /var/log/paragun/metrics/aggregate
+                datamash -s -W --group 1,2,3 count 4 sum 5 < /var/log/paragun/metrics/index > /var/log/paragun/metrics/aggregate
         endscript
         postrotate
                 # Get rsyslog to release lock on metrics file

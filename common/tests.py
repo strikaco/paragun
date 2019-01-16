@@ -15,8 +15,8 @@ class PulseUpdateViewTest(TestCase):
         "Receive and ingest a metrics update parcel."
         data = {
             'aggs': """
-3f125cd7-fd46-4e37-a88e-610db52c1562    cron    7       723
-3f125cd7-fd46-4e37-a88e-610db52c1562    sshd    3       351
+3f125cd7-fd46-4e37-a88e-610db52c1562    34.217.23.93    cron    7       723
+3f125cd7-fd46-4e37-a88e-610db52c1562    34.217.23.93    sshd    3       351
 """
         }
         
