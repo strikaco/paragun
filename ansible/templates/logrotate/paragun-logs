@@ -14,7 +14,7 @@
         dateext
         dateformat -%Y-%m-%d-%s
         postrotate
-                invoke-rc.d rsyslog rotate > /dev/null
+                /usr/sbin/invoke-rc.d rsyslog rotate > /dev/null
         endscript
         lastaction
                 

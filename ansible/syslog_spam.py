@@ -7,7 +7,7 @@ import sys
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-server_address = ('localhost', 514)
+server_address = ('paragun.labs.strika.co', 514)
 messages = """
 Oct 21 03:17:01 ip-172-31-18-199 CRON[17350]: pam_unix(cron:session): session opened for user root by (uid=0)
 Oct 21 03:17:01 ip-172-31-18-199 CRON[17350]: pam_unix(cron:session): session closed for user root

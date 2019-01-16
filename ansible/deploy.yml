@@ -215,17 +215,7 @@
     copy:
       force: no
       src: templates/rsyslog/blank_lookup.json
-      dest: /var/log/paragun/lookups/token_validity.json
-      owner: syslog
-      group: adm
-      mode: 0750
-    notify:
-    - Restart rsyslog
-  - name: Create stub lookup table for token retention
-    copy:
-      force: no
-      src: templates/rsyslog/blank_lookup.json
-      dest: /var/log/paragun/lookups/token_retention.json
+      dest: /var/log/paragun/lookups/token_valid.json
       owner: syslog
       group: adm
       mode: 0750
@@ -243,22 +233,17 @@
       
   - cron:
       name: Rotate and ship bulk logs
-      job: "logrotate -f /etc/logrotate.d/paragun-logs"
+      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-logs 2>&1 | /usr/bin/logger -t paragun-log-rotate"
       state: present
       minute: "*/5"
   - cron:
       name: Rotate and ship token counts
-      job: "logrotate -f /etc/logrotate.d/paragun-metrics"
+      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-metrics 2>&1 | /usr/bin/logger -t paragun-metrics-rotate"
       state: present
       minute: "*/5"
   - cron:
       name: Download valid token lists
-      job: "curl -o /var/log/paragun/lookups/token_validity.json {{ web_url }}/api/tokens/valid/"
-      state: present
-      minute: "*/5"
-  - cron:
-      name: Download log retention lists
-      job: "curl -o /var/log/paragun/lookups/token_retention.json {{ web_url }}/api/tokens/retention/"
+      job: "curl -o /var/log/paragun/lookups/token_valid.json {{ web_url }}/api/tokens/valid/ && invoke-rc.d rsyslog rotate > /dev/null"
       state: present
       minute: "*/5"
       
@@ -360,7 +345,7 @@
     file:
       owner: '{{ app_owner }}'
       group: root
-      state: file
+      state: touch
       path: '/var/log/paragun/django.log'
       mode: 0640
   - name: Download app source
@@ -393,7 +378,7 @@
   - name: Kill existing worker processes
     become: root
     #shell: "kill -9 `ps aux | grep gunicorn | grep paragun | awk '{ print $2 }'`"
-    shell: "pkill -TERM $(sudo cat {{ app_dir }}/paragun/gunicorn.pid)"
+    shell: "sudo pkill -TERM $(sudo cat {{ app_dir }}/paragun/gunicorn.pid)"
     ignore_errors: yes
     
   - name: Start frontend worker processes
@@ -416,3 +401,26 @@
     service:
       name: nginx
       state: reloaded
+      
+- hosts: spawner
+  vars:
+    web_url: paragun.labs.strika.co
+    token: 'd00ebd19-8fee-40a4-aa6f-bb31cd4843c8'
+  tasks:
+  - name: Firewall, deny and log by default
+    ufw:
+      state: enabled
+      policy: deny
+      log: yes
+  - name: Configure rsyslog to spam gateway
+    template:
+      src: templates/rsyslog/rsyslog-00-dummy.conf
+      dest: /etc/rsyslog.d/00-dummy.conf
+    notify:
+    - Restart rsyslog
+    
+  handlers:
+  - name: Restart rsyslog
+    service: 
+      name: rsyslog
+      state: restarted

@@ -16,3 +16,7 @@ web1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
 [writer]
 #127.0.0.1
+
+# For testing; no need for this in production
+[spawner]
+spawner.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3

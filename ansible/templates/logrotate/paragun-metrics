@@ -12,21 +12,14 @@
         dateext
         dateformat -%Y-%m-%d-%s
         prerotate
-                datamash -s -W --group 1,2 count 3 sum 4 < received > /var/log/paragun/metrics/aggregate
+                datamash -s -W --group 1,2 count 3 sum 4 < /var/log/paragun/metrics/index > /var/log/paragun/metrics/aggregate
         endscript
         postrotate
-                invoke-rc.d rsyslog rotate > /dev/null
-        endscript
-}
-
-/var/log/paragun/metrics/aggregate
-{
-        size 1
-        rotate 3
-        missingok
-        notifempty
-        postrotate
-                # Throw it against web interface to update last-seen counts
-                #curl -d "data=@/var/log/paragun/metrics/aggregate.1" {{ web_url }}
+                # Get rsyslog to release lock on metrics file
+                /usr/sbin/invoke-rc.d rsyslog rotate > /dev/null
+                
+                # Throw it against web API to update last-seen counts
+                curl --data-binary @/var/log/paragun/metrics/aggregate {{ web_url }}/api/metrics/update/
+                
         endscript
 }

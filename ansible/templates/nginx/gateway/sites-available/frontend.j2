@@ -1,4 +1,16 @@
 
+upstream tcpconsumers {
+    {% for server in groups.consumer %}
+    server {{ server }}:10514;
+    {% endfor %}
+}
+
+upstream relpconsumers {
+    {% for server in groups.consumer %}
+    server {{ server }}:20514;
+    {% endfor %}
+}
+
 upstream frontend {
     ip_hash;
 {% for server in groups.frontend %}

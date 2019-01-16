@@ -3,18 +3,20 @@ stream {
     upstream consumers {
     {% for server in groups.consumer %}
         server {{ server }}:514;
-        #server {{ server }}:10514;
-        #server {{ server }}:20514;
     {% endfor %}
     }
 
     server {
         listen 514 udp;
-        #listen 10514 tcp;
-        #listen 20514 tcp;
         
         proxy_pass consumers;
-        proxy_timeout 1s;
-        proxy_responses 1;
+        
+        # This may not even do anything for UDP
+        proxy_timeout 2s;
+        
+        # rsyslog UDP does not return a response, do not wait for one
+        proxy_responses 0; 
+        
+        error_log /var/log/nginx/gw_errors.log;
     }
 }
