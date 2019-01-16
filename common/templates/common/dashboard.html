@@ -11,36 +11,17 @@
   
   <div class="card-body">
     <div class="row">
-      <div class="col-lg-9 col-sm-12">
-        <h4 class="card-title">{{ object }} <small class="text-muted">{{ object.expires|timeuntil }} left</small></h4>
+      
+      <div class="col-lg-12 col-sm-12">
+        <h4 class="card-title"><a href="{% url 'token-detail' object.id %}">{{ object }}</a> <span class="inlinesparkline">{% for metric in object.statistics.hourly %}{{ metric.num_events }},{% empty %}0,0,0,0,0,0,0{% endfor %}</span></h4>
+        <ul>
+          <li>{{ object.expires|timeuntil }} left</li>
+          <li>{% firstof object.notes 'No information provided.' %}</li>
+          <li>{{ object.tag_list }}</li>
+        </ul>
       </div>
-      <div class="col-lg-3 col-sm-12">
-        <a class="btn btn-primary btn-block" href="{% url 'token-update' object.id %}">Renew / Update</a>
-      </div>
+      
     </div>
-    
-    <p class="card-text">{% firstof object.notes 'No information provided.' %}</p>
-    
-    <h6>Activity <span class="inlinesparkline">{% for metric in object.statistics.hourly %}{{ metric.num_events }},{% empty %}0,0,0,0,0,0,0{% endfor %}</span></h6>
-    
-    {% with metrics=object.statistics.daily_by_app %}
-    {% regroup metrics by ts as metrics_list %}
-    <ul>
-      {% for metric in metrics_list %}
-      <li>{{ metric.grouper|date:"Y-m-d" }}</li>
-      <ul>
-        {% for stat in metric.list %}
-        <li>
-          {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
-        </li>
-        {% endfor %}
-      </ul>
-      {% endfor %}
-    </ul>
-    {% endwith %}
-    
-    {% for tag in object.tag_list %}<span class="badge badge-light">{{ tag }}</span> {% endfor %}
-    
   </div>
 </div>
 {% empty %}

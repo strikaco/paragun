@@ -2,6 +2,7 @@ from datetime import timedelta
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import TruncDay, TruncHour
+from django.urls import reverse
 from django.utils import timezone
 from uuid import uuid4
 
@@ -141,6 +142,9 @@ class Token(AbstractBaseModel):
     @classmethod
     def generate(cls):
         return uuid4()
+        
+    def get_absolute_url(self):
+        return reverse('token-detail', args={'pk': self.id})
     
     def renew(self):
         self.expires = get_expiration()

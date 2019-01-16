@@ -1,0 +1,53 @@
+{% extends 'common/base.html' %}
+
+{% block content %}
+<h4>{{ object }} <small class="text-muted">({{ object.expires|timeuntil }} left)</small></h4>
+<hr />
+
+<div class="row">
+  <!-- left column -->
+  <div class="col-lg-9 col-sm-12">
+    <div class="card border-light mb-3">
+      <div class="card-body">
+        <p class="card-text lead">{% firstof object.notes 'No information provided.' %}</p>
+        <p class="card-text">Current retention policy: {{ object.retain }} days</p>
+      </div>
+    </div>
+    
+    <div class="card border-light mb-3">
+      
+      <div class="card-body">
+        <h4 class="card-title">Activity</h4>
+        <hr />
+        {% with metrics=object.statistics.daily_by_app %}
+        {% regroup metrics by ts as metrics_list %}
+        <ul>
+          {% for metric in metrics_list %}
+          <li>{{ metric.grouper|date:"Y-m-d" }}</li>
+          <ul>
+            {% for stat in metric.list %}
+            <li>
+              {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
+            </li>
+            {% endfor %}
+          </ul>
+          {% endfor %}
+        </ul>
+        {% endwith %}
+      </div>
+    </div>
+    
+    
+    
+  </div>
+  <!-- end left column -->
+  
+  <!-- right column -->
+  <div class="col-lg-3 col-sm-12">
+    <a class="btn btn-block btn-primary mb-3" href="{% url 'token-update' object %}?next={{ request.path }}" >Update / Renew</a>
+    <a class="btn btn-block btn-danger" href="?next={{ request.path }}">Disable</a>
+  </div>
+  <!-- end right column -->
+</div>
+
+{% endblock %}

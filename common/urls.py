@@ -18,11 +18,15 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
+    # HTML views
     path('dashboard/', DashboardView.as_view(), name="dashboard"),
+    
     path('tokens/create/', TokenCreateView.as_view(), name="token-create"),
     path('tokens/update/<str:pk>/', TokenUpdateView.as_view(), name="token-update"),
-    path('pulse/', PulseUpdateView.as_view(), name="pulse-update"),
+    path('tokens/detail/<str:pk>/', TokenDetailView.as_view(), name="token-detail"),
     
+    # API views
+    path('api/metrics/update/', PulseUpdateView.as_view(), name="pulse-update"),
     path('api/tokens/valid/', TokenDumpView.as_view(), name="token-dump"),
     path('api/tokens/retention/', TokenRetentionView.as_view(), name="token-retention"),
     

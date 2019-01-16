@@ -4,17 +4,18 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import TemplateView, ListView, FormView, View
+from django.views.generic import TemplateView, ListView, DetailView, FormView, View
 from django.views.generic.edit import CreateView, UpdateView
 
 from time import time
 import json
 import logging
+import re
 
 # Create your views here.
 class IndexView(TemplateView):
@@ -66,13 +67,15 @@ class DashboardView(LoginRequiredMixin, ListView):
 
 class TokenCreateView(LoginRequiredMixin, CreateView):
     model = Token
-    fields = ['retention', 'notes', 'tags']
+    fields = ['retain', 'notes', 'tags']
     page_title = "Create Token"
-    success_url = reverse_lazy('dashboard')
+    #success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
     
     def form_valid(self, form):
         form.instance.user = self.request.user
+        self.success_url = self.request.POST.get('next', '')
+        if not self.success_url: self.success_url = reverse('dashboard')
         
         super().form_valid(form)
         
@@ -85,9 +88,8 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
     
 class TokenUpdateView(LoginRequiredMixin, UpdateView):
     model = Token
-    fields = ['retention', 'notes', 'tags']
+    fields = ['retain', 'notes', 'tags']
     page_title = "Update Token"
-    success_url = reverse_lazy('dashboard')
     template_name = 'common/generic_form.html'
     
     def get_queryset(self, **kwargs):
@@ -95,10 +97,18 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
         return self.request.user.tokens
         
     def form_valid(self, form):
+        self.success_url = self.request.POST.get('next', reverse('dashboard'))
+        
         super().form_valid(form)
+        self.object.renew()
         messages.success(self.request, "Your access token expiration and details have been refreshed.")
         return HttpResponseRedirect(self.success_url)
         
+class TokenDetailView(LoginRequiredMixin, DetailView):
+    model = Token
+    page_title = "Token Detail"
+    template_name = 'common/token_detail.html'
+
 
 class TokenDumpView(View):
     
@@ -116,10 +126,11 @@ class TokenDumpView(View):
         tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
         
         # Build the lookup table
-        table = { "version" : 1,
-            "nomatch" : 0,
+        table = { 
+            "version" : 1,
+            "nomatch" : "0",
             "type" : "string",
-            "table" : [{"index" : token.id, "value" : token.enabled } for token in tokens]
+            "table" : [{"index" : str(token.id).lower(), "value" : "1"} for token in tokens]
         }
         
         # Return it
@@ -162,35 +173,59 @@ class PulseUpdateView(View):
         # TODO: Check for API key
         
         # Get payload
-        data = [x.strip() for x in request.POST.get('data', '').strip().split('\n') if x.strip() != '']
-        rows = [x.split('    ') for x in data]
+        try:
+            data = (x.strip() for x in request.body.decode('utf-8').splitlines() if x.strip() != '')
+            # Split on any whitespace
+            rows = [re.split('\t+|\s{2,}', x) for x in data]
+        except Exception as e:
+            logger.error("Error getting payload:")
+            logger.error(e, exc_info=True)
+            return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
         
         # Get a list of reported tokens from this parcel
-        reported_tokens = set()
-        for row in rows:
-            reported_tokens.add(row[0])
+        try:
+            reported_tokens = set()
+            for row in rows:
+                reported_tokens.add(row[0].strip())
+            logger.info("Found: %s" % reported_tokens)
+        except Exception as e:
+            logger.error("Error extracting tokens from payload:")
+            logger.error(e, exc_info=True)
+            return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
             
         # Convert them to token objects
-        valid_tokens = tuple(x for x in Token.objects.enabled().filter(value__in=reported_tokens) if not x.expired)
+        try:
+            valid_tokens = tuple(x for x in Token.objects.filter(id__in=reported_tokens) if not x.expired)
+            if not valid_tokens:
+                return HttpResponseBadRequest("No valid tokens were found in the metrics payload.\n%s" % reported_tokens)
+        except Exception as e:
+            logger.error("Error converting token strings to Token objects:")
+            logger.error(e, exc_info=True)
+            return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
         
         # Update metrics for each token
-        with transaction.atomic():
-            for row in rows:
-                row = [x.strip() for x in row]
+        try:
+            with transaction.atomic():
+                for row in rows:
+                    row = [x.strip() for x in row]
+                    
+                    try:
+                        token_str, app, count, bytes = row
+                    except ValueError as e:
+                        logger.error(e, exc_info=True)
+                        return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
+                    
+                    # Check if token is valid/enabled
+                    token = next((x for x in valid_tokens if str(x.id) == token_str), None)
+                    if not token:
+                        logger.debug('No current/valid token found for %s.' % token_str)
+                        continue
+                    
+                    # Create new pulse
+                    Pulse.objects.create(token=token, app=app, count=count, bytes=bytes)
+                    
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
                 
-                try:
-                    token_str, app, count, bytes = row
-                except ValueError as e:
-                    logger.error(e, exc_info=True)
-                    return HttpResponse(e if settings.DEBUG else 'Server Error', status=500)
-                
-                # Check if token is valid/enabled
-                token = next((x for x in valid_tokens if x.value == token_str), None)
-                if not token:
-                    logger.debug('No current/valid token found for %s.' % token_str)
-                    continue
-                
-                # Create new pulse
-                Pulse.objects.create(token=token, app=app, count=count, bytes=bytes)
-                
-        return HttpResponse(status=200)
+        return HttpResponse('Update Acknowledged', status=200)
