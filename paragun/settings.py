@@ -13,18 +13,31 @@ from django.urls import reverse_lazy
 import os
 import ldap
 import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s')
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s')
 logger = logging.getLogger(__name__)
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s'
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
         'file': {
             'class': 'logging.FileHandler',
+            'formatter': 'verbose',
+            'filename': '/var/log/paragun/django.log',
+        },
+        'debug_file': {
+            'class': 'logging.FileHandler',
+            'formatter': 'verbose',
+            'level': 'DEBUG',
             'filename': '/var/log/paragun/django.log',
         },
     },
@@ -33,6 +46,10 @@ LOGGING = {
             'handlers': ['file'],
             'propagate': True,
         },
+        '': {
+            'handlers': ['file', 'debug_file'],
+            'propagate': True,
+        }
     },
 }
 
@@ -54,7 +71,7 @@ SECRET_KEY = '2bn64i84he6q!qk_mg6x_rr@no@m-p9!6hxx)^ynprw*8!kw6*'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['paragun.labs.strika.co']
 
 AUTH_USER_MODEL = 'common.User'
 LOGIN_REDIRECT_URL = reverse_lazy('dashboard')
