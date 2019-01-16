@@ -81,6 +81,7 @@ class Host(AbstractBaseModel):
 class Pulse(AbstractBaseModel):
     
     token = models.ForeignKey('Token', on_delete=models.CASCADE, related_name='metrics')
+    host = models.GenericIPAddressField(blank=True, null=True)
     app = models.CharField(max_length=8)
     count = models.PositiveIntegerField()
     bytes = models.PositiveIntegerField()
@@ -160,4 +161,4 @@ class User(AbstractUser, AbstractBaseModel):
     
     @property
     def tokens(self):
-        return Token.objects.filter(enabled=True, user=self).order_by('-expires')
+        return Token.objects.filter(user=self)
