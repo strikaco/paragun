@@ -27,7 +27,7 @@
           <ul>
             {% for stat in metric.list %}
             <li>
-              {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
+              {{ stat.host }}: {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
             </li>
             {% endfor %}
           </ul>

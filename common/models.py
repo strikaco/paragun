@@ -91,7 +91,7 @@ class Statistics(object):
     
     def __init__(self, obj):
         self.obj = obj
-        self.limit = timezone.now() - timedelta(days=7)
+        self.limit = timezone.now() - timedelta(days=365)
         
         self.queryset = self.obj.metrics.filter(created__gte=self.limit)
         
@@ -102,10 +102,10 @@ class Statistics(object):
         return self.queryset.annotate(ts=TruncHour('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
         
     def daily_by_app(self):
-        return self.queryset.annotate(ts=TruncDay('created')).values('ts', 'app').order_by('ts', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+        return self.queryset.annotate(ts=TruncDay('created')).values('ts', 'host', 'app').order_by('ts', 'host', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
     
     def hourly_by_app(self):
-        return self.queryset.annotate(ts=TruncHour('created')).values('ts', 'app').order_by('ts', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+        return self.queryset.annotate(ts=TruncHour('created')).values('ts', 'host', 'app').order_by('ts', 'host', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
     
 
 class Token(AbstractBaseModel):
