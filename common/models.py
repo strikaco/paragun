@@ -110,6 +110,7 @@ class Token(AbstractBaseModel):
     id = models.CharField(max_length=255, primary_key=True, default=uuid4, help_text="Token string, as UUID4.")
     
     user = models.ForeignKey('User', on_delete=models.CASCADE, help_text="What user is responsible for the creation of this token?")
+    application = models.CharField(max_length=80, default='', blank=True, help_text="Name of the application (i.e. 'Jenkins') whose logs will be remitted under this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     retain = models.PositiveIntegerField(default=365, help_text="How long (in days) to keep logs submitted under this token.")
     backup_email = models.EmailField(help_text="Email address of a second party or group to send expiration warnings to.", default='', blank=True)
