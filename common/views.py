@@ -90,7 +90,7 @@ class DashboardView(LoginRequiredMixin, ListView):
             tokens (QuerySet): Tokens owned by current user.
             
         """
-        return self.request.user.tokens.order_by('-created')
+        return self.request.user.tokens.filter(enabled=True).order_by('-created')
         
 
 class TokenCreateView(LoginRequiredMixin, CreateView):
@@ -149,7 +149,7 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
             tokens (QuerySet): Tokens owned by current user.
             
         """
-        return self.request.user.tokens
+        return self.request.user.tokens.filter(enabled=True)
         
     def form_valid(self, form):
         """
@@ -182,7 +182,33 @@ class TokenDetailView(LoginRequiredMixin, DetailView):
     model = Token
     page_title = "Token Detail"
     template_name = 'common/token_detail.html'
-
+    
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        
+        bucket = []
+        host_summary = self.object.statistics().by_host()
+        for obj in host_summary:
+            bucket.append({
+                'host': obj['host'],
+                'num_events': obj['num_events'],
+                'num_bytes': obj['num_bytes'],
+                'trendline': ','.join([str(x) for x in Host(obj['host']).trendline()])
+            })
+    
+        context['host_summary'] = bucket
+        return context
+        
+    def get_queryset(self, **kwargs):
+        """
+        Restricts tokens available for access to only those owned by user.
+        
+        Returns:
+            tokens (QuerySet): Tokens owned by current user.
+            
+        """
+        return self.request.user.tokens.filter(enabled=True)
+        
 
 class TokenDumpView(View):
     
@@ -197,10 +223,10 @@ class TokenDumpView(View):
         # TODO: Check for API key
         
         # Get all valid tokens
-        tokens = Token.objects.filter(expires__gt=timezone.now()).order_by('id').iterator()
+        tokens = Token.objects.filter(enabled=True, expires__gt=timezone.now()).order_by('id').iterator()
         
         # Build the lookup table
-        table = { 
+        table = {
             "version" : 1,
             "nomatch" : "0",
             "type" : "string",

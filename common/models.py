@@ -1,7 +1,9 @@
 from datetime import timedelta
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models.functions import TruncDay, TruncHour
+from django.db.models import Q
+from django.db.models.functions import Coalesce, TruncDay, TruncHour
 from django.urls import reverse
 from django.utils import timezone
 from uuid import uuid4
@@ -39,7 +41,7 @@ class AbstractBaseModel(models.Model):
     updated = models.DateTimeField(auto_now=True, help_text="Date and time of last object modification.")
     enabled = models.BooleanField(default=True, help_text="Whether or not this object should be enabled.")
     
-    tags = models.CharField(max_length=160, blank=True, default='', help_text="Comma-separated list of any custom tags related to this object.")
+    tags = models.CharField(max_length=160, blank=True, null=True, help_text="Comma-separated list of any custom tags related to this object.")
     
     # Custom object handler
     objects = AbstractBaseModelManager()
@@ -48,6 +50,20 @@ class AbstractBaseModel(models.Model):
     def tag_list(self):
         terms = (x.strip() for x in self.tags.split(','))
         return tuple(x for x in terms)
+        
+    def get_admin_url(self):
+        """
+        Returns the URI path for the Django Admin page for this object.
+
+        ex. Account#1 = '/admin/accounts/1/change/'
+
+        Returns:
+            path (str): URI path to Django Admin page for object.
+
+        """
+        content_type = ContentType.objects.get_for_model(self.__class__)
+        return reverse("admin:%s_%s_change" % (content_type.app_label,
+                                               content_type.model), args=(self.id,))
         
         
 class Pulse(AbstractBaseModel):
@@ -61,16 +77,18 @@ class Pulse(AbstractBaseModel):
 
 class Statistics(object):
     
+    limit_int = 30
+    
     def __init__(self, obj):
         self.obj = obj
-        self.limit = timezone.now() - timedelta(days=365)
+        self.limit = timezone.now() - timedelta(days=self.limit_int)
         
         self.queryset = self.obj.metrics.filter(created__gte=self.limit)
         
     def daily(self):
         return self.queryset.annotate(ts=TruncDay('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
         
-    def hosts(self):
+    def by_host(self):
         return self.queryset.values('host').order_by('host').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
         
     def hourly(self):
@@ -78,7 +96,7 @@ class Statistics(object):
         
     def daily_by_app(self):
         return self.queryset.annotate(ts=TruncDay('created')).values('ts', 'host', 'app').order_by('ts', 'host', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
-    
+
     def hourly_by_app(self):
         return self.queryset.annotate(ts=TruncHour('created')).values('ts', 'host', 'app').order_by('ts', 'host', 'app').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
     
@@ -128,7 +146,19 @@ class Token(AbstractBaseModel):
         
     def statistics(self, *args, **kwargs):
         return Statistics(self)
-    
+        
+    def trendline(self, *args, **kwargs):
+        # Get list of dates
+        qs = Pulse.objects.annotate(
+            ts=TruncHour('created')
+        ).values('ts').distinct().annotate(
+            num_events=Coalesce(models.Sum('count', filter=Q(token=self)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(token=self)), 0)
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+        
+        data = [x['num_events'] for x in qs]
+        if len(data) < 30:
+            data = [0 for x in range(30-len(data))] + data
+        return ','.join([str(x) for x in data])
 
 class User(AbstractUser, AbstractBaseModel):
     
@@ -137,3 +167,31 @@ class User(AbstractUser, AbstractBaseModel):
     @property
     def tokens(self):
         return Token.objects.filter(user=self)
+        
+    
+class Host(object):
+    
+    def __init__(self, ip, *args, **kwargs):
+        self.ip = ip
+        
+    def counts_by_day(self):
+        # Get list of dates
+        return Pulse.objects.annotate(
+            ts=TruncDay('created')
+        ).values('ts').distinct().annotate(
+            num_events=Coalesce(models.Sum('count', filter=Q(host=self.ip)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(host=self.ip)), 0)
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+        
+    def counts_by_hour(self):
+        # Get list of dates
+        return Pulse.objects.annotate(
+            ts=TruncHour('created')
+        ).values('ts').distinct().annotate(
+            num_events=Coalesce(models.Sum('count', filter=Q(host=self.ip)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(host=self.ip)), 0)
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+    
+    def trendline(self):
+        data = [x['num_events'] for x in self.counts_by_hour()]
+        if len(data) < 30:
+            data = [0 for x in range(30-len(data))] + data
+        return data
