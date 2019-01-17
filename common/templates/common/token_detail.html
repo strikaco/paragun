@@ -1,5 +1,11 @@
 {% extends 'common/base.html' %}
 
+{% load static %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/jquery.dataTables.min.css' %}">
+{% endblock %}
+
 {% block content %}
 <h4>{{ object }} <small class="text-muted">({{ object.expires|timeuntil }} left)</small></h4>
 <hr />
@@ -19,21 +25,30 @@
       <div class="card-body">
         <h4 class="card-title">Activity</h4>
         <hr />
-        {% with metrics=object.statistics.daily_by_app %}
-        {% regroup metrics by ts as metrics_list %}
-        <ul>
-          {% for metric in metrics_list %}
-          <li>{{ metric.grouper|date:"Y-m-d" }}</li>
-          <ul>
-            {% for stat in metric.list %}
-            <li>
-              {{ stat.host }}: {{ stat.app }}: {{ stat.num_events }} ({{ stat.num_bytes|filesizeformat }})
-            </li>
+        
+        <table id="detailTable" class="table table-hover" style="width:100%">
+          <thead>
+            <tr>
+                <th>Date</th>
+                <th>Host</th>
+                <th>Service</th>
+                <th>Events</th>
+                <th>Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for metric in object.statistics.hourly_by_app %}
+            <tr>
+                <td>{{ metric.ts|date:"Y-m-d H" }}:00</td>
+                <td>{{ metric.host }}</td>
+                <td>{{ metric.app }}</td>
+                <td>{{ metric.num_events }}</td>
+                <td>{{ metric.num_bytes|filesizeformat }}</td>
+            </tr>
             {% endfor %}
-          </ul>
-          {% endfor %}
-        </ul>
-        {% endwith %}
+          </tbody>
+        </table>
+        
       </div>
     </div>
     
@@ -49,5 +64,18 @@
   </div>
   <!-- end right column -->
 </div>
+
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript" src="{% static 'js/jquery.dataTables.min.js' %}"></script>
+
+<!-- datatables -->
+<script type="text/javascript">
+  $(document).ready( function () {
+      $('#detailTable').DataTable();
+  } );
+</script>
+<!-- end datatables -->
 
 {% endblock %}

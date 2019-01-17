@@ -80,7 +80,7 @@ class DashboardView(LoginRequiredMixin, ListView):
     model = Token
     page_title = "Dashboard"
     template_name = 'common/dashboard.html'
-    paginate_by = 25
+    paginate_by = 0
     
     def get_queryset(self, **kwargs):
         """
