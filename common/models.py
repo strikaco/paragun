@@ -48,34 +48,6 @@ class AbstractBaseModel(models.Model):
     def tag_list(self):
         terms = (x.strip() for x in self.tags.split(','))
         return tuple(x for x in terms)
-
-
-class Host(AbstractBaseModel):
-    
-    class Meta:
-        unique_together = ('hostname', 'domain')
-    
-    hostname = models.CharField(max_length=255, help_text="Name of a specific computer or host on the network.")
-    domain = models.CharField(max_length=255, help_text="The domain name a specific computer, or host, on the network is associated with.")
-    
-    @property
-    def fqdn(self):
-        return '.'.join((self.hostname, self.domain))
-        
-    @fqdn.setter
-    def fqdn(self, val):
-        hostname, domain = val.strip().lower().split('.', 1)
-        self.hostname = hostname.strip()
-        self.domain = domain.strip()
-        
-    def __str__(self):
-        return self.fqdn
-        
-    def save(self, *args, **kwargs):
-        # Forces storage as lowercase
-        self.hostname = self.hostname.strip().lower()
-        self.domain = self.domain.strip().lower()
-        super().save(*args, **kwargs)
         
         
 class Pulse(AbstractBaseModel):
@@ -98,6 +70,9 @@ class Statistics(object):
     def daily(self):
         return self.queryset.annotate(ts=TruncDay('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
         
+    def hosts(self):
+        return self.queryset.values('host').order_by('host').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
+        
     def hourly(self):
         return self.queryset.annotate(ts=TruncHour('created')).values('ts').order_by('ts').annotate(num_events=models.Sum('count'), num_bytes=models.Sum('bytes'))
         
@@ -117,7 +92,6 @@ class Token(AbstractBaseModel):
     id = models.CharField(max_length=255, primary_key=True, default=uuid4, help_text="Token string, as UUID4.")
     
     user = models.ForeignKey('User', on_delete=models.CASCADE, help_text="What user is responsible for the creation of this token?")
-    hosts = models.ManyToManyField('Host', help_text="What hostnames to expect logs from using this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     retain = models.PositiveIntegerField(default=365, help_text="How long (in days) to keep logs submitted under this token.")
     backup_email = models.EmailField(help_text="Email address of a second party or group to send expiration warnings to.", default='', blank=True)
