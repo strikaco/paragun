@@ -23,7 +23,40 @@
     <div class="card border-light mb-3">
       
       <div class="card-body">
-        <h4 class="card-title">Activity</h4>
+        <h4 class="card-title">Host Summary <small class="text-muted"></small></h4>
+
+        <table class="table table-hover" style="width:100%">
+          <thead>
+            <tr>
+                <th>Host</th>
+                <th>Events</th>
+                <th>Size</th>
+                <th>Activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for host in host_summary %}
+            <tr>
+                <td>{{ host.host }}</td>
+                <td>{{ host.num_events }}</td>
+                <td>{{ host.num_bytes|filesizeformat }}</td>
+                <td><span class="inlinesparkline">{{ host.trendline }}</span></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No recent data!</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        
+      </div>
+    </div>
+        
+    <div class="card border-light mb-3">
+      
+      <div class="card-body">
+        <h4 class="card-title">Metrics Log</h4>
         <hr />
         
         <table id="detailTable" class="table table-hover" style="width:100%">
@@ -33,7 +66,8 @@
                 <th>Host</th>
                 <th>Service</th>
                 <th>Events</th>
-                <th>Size</th>
+                <th>Size (Bytes)</th>
+                <th>Size (Human)</th>
             </tr>
           </thead>
           <tbody>
@@ -43,7 +77,12 @@
                 <td>{{ metric.host }}</td>
                 <td>{{ metric.app }}</td>
                 <td>{{ metric.num_events }}</td>
+                <td>{{ metric.num_bytes }}</td>
                 <td>{{ metric.num_bytes|filesizeformat }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">No recent data!</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -59,8 +98,13 @@
   
   <!-- right column -->
   <div class="col-lg-3 col-sm-12">
-    <a class="btn btn-block btn-primary mb-3" href="{% url 'token-update' object %}?next={{ request.path }}" >Update / Renew</a>
-    <a class="btn btn-block btn-danger" href="?next={{ request.path }}">Disable</a>
+    <div class="card border-light mb-3">
+      <div class="card-body">
+        <a class="btn btn-block btn-primary mb-3" href="{% url 'token-update' object %}?next={{ request.path }}" >Update / Renew</a>
+        <a class="btn btn-block btn-danger mb-3" href="?next={{ request.path }}">Disable</a>
+        <a class="btn btn-block btn-outline-danger mb-3" href="{{ object.get_admin_url }}">Admin</a>
+      </div>
+    </div>
   </div>
   <!-- end right column -->
 </div>
@@ -68,7 +112,18 @@
 {% endblock %}
 
 {% block js %}
+<script type="text/javascript" src="{% static 'js/jquery.sparkline.min.js' %}"></script>
 <script type="text/javascript" src="{% static 'js/jquery.dataTables.min.js' %}"></script>
+
+<!-- sparklines -->
+<script type="text/javascript">
+    $(function() {
+        /** This code runs when everything has been loaded on the page */
+        /* Inline sparklines take their values from the contents of the tag */
+        $('.inlinesparkline').sparkline();
+    });
+</script>
+<!-- end sparklines --?
 
 <!-- datatables -->
 <script type="text/javascript">

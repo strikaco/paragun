@@ -2,7 +2,8 @@
 {% load static %}
 
 {% block css %}
-<link rel="stylesheet" href="{% static 'css/jquery.dataTables.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/dataTables.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/responsive.dataTables.min.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -10,48 +11,32 @@
 <a class="btn btn-primary btn-block" href="{% url 'token-create' %}">Generate</a>
 <hr />
 
-<table id="dashboardTable" class="table table-hover" style="width:100%">
-  <thead>
-    <tr>
+
+  <table id="dashboardTable" class="table table-hover">
+    <thead>
+      <tr>
         <th>Token</th>
-        <th>Notes</th>
+        <th class="none">Notes</th>
         <th>Expires</th>
         <th>Activity</th>
-        <th>Tags</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for object in object_list %}
-    <tr>
-        <td><a href="{{ object.get_absolute_url }}">{{ object }}</a></td>
-        <td>{% firstof object.notes 'No information provided.' %}</td>
-        <td>{{ object.expires|timeuntil }} left</td>
-        <td><span class="inlinesparkline">{% for metric in object.statistics.hourly %}{{ metric.num_events }},{% empty %}0,0,0,0,0,0,0{% endfor %}</span></td>
-        <td>{{ object.tag_list }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+        <th>Created</th>
+        <th class="none">Tags</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for object in object_list %}
+      <tr>
+          <td><a href="{{ object.get_absolute_url }}">{{ object }}</a></td>
+          <td>{% firstof object.notes 'No information provided.' %}</td>
+          <td>{{ object.expires|timeuntil }} left</td>
+          <td><span class="inlinesparkline">{{ object.trendline }}</span></td>
+          <td>{{ object.created|date:'Y-m-d H:i:s' }}</td>
+          <td><ul>{{ object.tag_list|unordered_list }}</ul></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
-
-
-<div class="row">
-  
-  <!-- left column -->
-  <div class="col-lg-9 col-sm-12">
-    <ul>
-    
-    </ul>
-  </div>
-  <!-- end left column -->
-  
-  <!-- right column -->
-  <div class="col-lg-3 col-sm-12">
-    
-  </div>
-  <!-- end right column -->
-  
-</div>
 
 <hr />
 
@@ -60,23 +45,27 @@
 {% block js %}
 <script type="text/javascript" src="{% static 'js/jquery.sparkline.min.js' %}"></script>
 <script type="text/javascript" src="{% static 'js/jquery.dataTables.min.js' %}"></script>
-
+<script type="text/javascript" src="{% static 'js/dataTables.bootstrap4.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'js/dataTables.responsive.min.js' %}"></script>
 
 <!-- sparklines -->
 <script type="text/javascript">
-    $(function() {
-        /** This code runs when everything has been loaded on the page */
-        /* Inline sparklines take their values from the contents of the tag */
-        $('.inlinesparkline').sparkline();
-    });
+  $(function() {
+    /** This code runs when everything has been loaded on the page */
+    /* Inline sparklines take their values from the contents of the tag */
+    $('.inlinesparkline').sparkline();
+  });
 </script>
 <!-- end sparklines --?
 
 <!-- datatables -->
 <script type="text/javascript">
-  $(document).ready( function () {
-      $('#dashboardTable').DataTable();
-  } );
+  $(function() {
+    $('#dashboardTable').DataTable({
+      responsive: true,
+      order: [[ 3, "desc" ]]
+    });
+  });
 </script>
 <!-- end datatables -->
 
