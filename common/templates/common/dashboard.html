@@ -11,32 +11,32 @@
 <a class="btn btn-primary btn-block" href="{% url 'token-create' %}">Generate</a>
 <hr />
 
-
-  <table id="dashboardTable" class="table table-hover">
-    <thead>
-      <tr>
-        <th>Token</th>
-        <th class="none">Notes</th>
-        <th>Expires</th>
-        <th>Activity</th>
-        <th>Created</th>
-        <th class="none">Tags</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for object in object_list %}
-      <tr>
-          <td><a href="{{ object.get_absolute_url }}">{{ object }}</a></td>
-          <td>{% firstof object.notes 'No information provided.' %}</td>
-          <td>{{ object.expires|timeuntil }} left</td>
-          <td><span class="inlinesparkline">{{ object.trendline }}</span></td>
-          <td>{{ object.created|date:'Y-m-d H:i:s' }}</td>
-          <td><ul>{{ object.tag_list|unordered_list }}</ul></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
+<table id="dashboardTable" class="table table-hover">
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Application</th>
+      <th class="none">Notes</th>
+      <th>Expires</th>
+      <th>Activity</th>
+      <th>Created</th>
+      <th class="none">Tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for object in object_list %}
+    <tr>
+        <td><a href="{{ object.get_absolute_url }}">{{ object }}</a></td>
+        <td>{{ object.application }}</td>
+        <td>{% firstof object.notes 'No information provided.' %}</td>
+        <td>{{ object.expires|timeuntil }} left</td>
+        <td><span class="inlinesparkline">{{ object.trendline }}</span></td>
+        <td>{{ object.created|date:'Y-m-d H:i:s' }}</td>
+        <td><ul>{{ object.tag_list|unordered_list }}</ul></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 <hr />
 

@@ -99,7 +99,7 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
     
     """
     model = Token
-    fields = ['retain', 'notes', 'tags', 'backup_email']
+    fields = ['application', 'retain', 'notes', 'tags', 'backup_email']
     page_title = "Create Token"
     template_name = 'common/generic_form.html'
     
@@ -137,7 +137,7 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
     
     """
     model = Token
-    fields = ['retain', 'notes', 'tags', 'backup_email']
+    fields = ['application', 'retain', 'notes', 'tags', 'backup_email']
     page_title = "Update Token"
     template_name = 'common/generic_form.html'
     
@@ -185,6 +185,8 @@ class TokenDetailView(LoginRequiredMixin, DetailView):
     
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
+        if self.object.application:
+            context['page_title'] = '%s (%s)' % (self.page_title, self.object.application)
         
         bucket = []
         host_summary = self.object.statistics().by_host()
