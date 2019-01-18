@@ -158,12 +158,12 @@ class Token(AbstractBaseModel):
             ts=TruncHour('created')
         ).values('ts').distinct().annotate(
             num_events=Coalesce(models.Sum('count', filter=Q(token=self)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(token=self)), 0)
-        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts').iterator()
         
         data = [x['num_events'] for x in qs]
-        if len(data) < 30:
-            data = [0 for x in range(30-len(data))] + data
-        return ','.join([str(x) for x in data])
+        if len(data) < 45:
+            data = [0 for x in range(45-len(data))] + data
+        return ','.join([str(x) for x in data[-45:]])
 
 class User(AbstractUser, AbstractBaseModel):
     
@@ -185,7 +185,7 @@ class Host(object):
             ts=TruncDay('created')
         ).values('ts').distinct().annotate(
             num_events=Coalesce(models.Sum('count', filter=Q(host=self.ip)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(host=self.ip)), 0)
-        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts').iterator()
         
     def counts_by_hour(self):
         # Get list of dates
@@ -193,10 +193,10 @@ class Host(object):
             ts=TruncHour('created')
         ).values('ts').distinct().annotate(
             num_events=Coalesce(models.Sum('count', filter=Q(host=self.ip)), 0), num_bytes=Coalesce(models.Sum('bytes', filter=Q(host=self.ip)), 0)
-        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts')
+        ).values('ts', 'host', 'num_events', 'num_bytes').order_by('ts').iterator()
     
     def trendline(self):
         data = [x['num_events'] for x in self.counts_by_hour()]
-        if len(data) < 30:
-            data = [0 for x in range(30-len(data))] + data
-        return data
+        if len(data) < 45:
+            data = [0 for x in range(45-len(data))] + data
+        return ','.join([str(x) for x in data[-45:]])

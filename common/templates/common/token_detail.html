@@ -25,7 +25,7 @@
           <div class="col-sm-12 col-lg-6">
             <dl>
               <dt>Application</dt>
-              <dd>{{ object.application }}</dd>
+              <dd>{% firstof object.application 'Unknown' %}</dd>
               
               <dt>Retention</dt>
               <dd>{{ object.retain }} days</dd>
@@ -34,7 +34,7 @@
               <dd>{{ object.user }} {% if object.user.email %}({{ object.user.email|urlize }}){% endif %}</dd>
               
               <dt>Contact</dt>
-              <dd>{% firstof object.backup_email|urlize object.user.email|urlize 'None provided.' %}</dd>
+              <dd>{% firstof object.contact|urlize object.user.email|urlize 'None provided.' %}</dd>
             </dl>
           </div>
           <!-- end left attribute column -->
@@ -53,8 +53,6 @@
             </dl>
           </div>
           <!-- end right attribute column -->
-          
-          
         </div>
         
         <hr />
@@ -79,7 +77,7 @@
       <div class="card-body">
         <h4 class="card-title">Host Summary <small class="text-muted"></small></h4>
 
-        <table class="table table-hover" style="width:100%">
+        <table id="hostTable" class="table table-hover" style="width:100%">
           <thead>
             <tr>
                 <th>Host</th>
@@ -120,8 +118,8 @@
                 <th>Host</th>
                 <th>Service</th>
                 <th>Events</th>
-                <th>Size (Bytes)</th>
-                <th>Size (Human)</th>
+                <th>Bytes</th>
+                <th>Size</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +153,7 @@
     <div class="card border-light mb-3">
       <div class="card-body">
         <a class="btn btn-block btn-primary mb-3" href="{% url 'token-update' object %}?next={{ request.path }}" >Update / Renew</a>
-        <a class="btn btn-block btn-danger mb-3" href="?next={{ request.path }}">Disable</a>
+        <a class="btn btn-block btn-danger mb-3" href="{% url 'token-delete' object %}">Delete</a>
         {% if request.user.is_staff %}<a class="btn btn-block btn-outline-danger mb-3" href="{{ object.get_admin_url }}">Admin</a>{% endif %}
       </div>
     </div>
@@ -186,7 +184,15 @@
   $(document).ready( function () {
       $('#detailTable').DataTable({
       responsive: true,
+      pagingType: "simple",
       order: [[ 0, "desc" ]]
+    });
+  } );
+  
+  $(document).ready( function () {
+      $('#hostTable').DataTable({
+      responsive: true,
+      pagingType: "simple",
     });
   } );
 </script>

@@ -231,7 +231,7 @@ class TokenDetailView(LoginRequiredMixin, DetailView):
                 'host': obj['host'],
                 'num_events': obj['num_events'],
                 'num_bytes': obj['num_bytes'],
-                'trendline': ','.join([str(x) for x in Host(obj['host']).trendline()])
+                'trendline': Host(obj['host']).trendline()
             })
     
         context['host_summary'] = bucket
