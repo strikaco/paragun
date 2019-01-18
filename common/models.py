@@ -48,6 +48,7 @@ class AbstractBaseModel(models.Model):
     
     @property
     def tag_list(self):
+        if not self.tags: return ()
         terms = (x.strip() for x in self.tags.split(','))
         return tuple(x for x in terms)
         
@@ -113,7 +114,7 @@ class Token(AbstractBaseModel):
     application = models.CharField(max_length=80, default='Unknown', blank=True, help_text="Name of the application (i.e. 'Jenkins') whose logs will be remitted under this token.")
     expires = models.DateTimeField(default=get_expiration, help_text="Date and time of token expiration.")
     retain = models.PositiveIntegerField(default=365, help_text="How long (in days) to keep logs submitted under this token.")
-    backup_email = models.EmailField(help_text="Email address of a second party or group to send expiration warnings to.", default='', blank=True)
+    contact = models.EmailField(help_text="Email address of a second party or group to send expiration warnings to.", default='', blank=True)
     
     notes = models.CharField(max_length=160, blank=True, null=True, help_text="Any notes about the reason for this token.")
     
