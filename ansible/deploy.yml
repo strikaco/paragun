@@ -361,6 +361,11 @@
       virtualenv_command: "/usr/bin/python3 -m venv"
       requirements: "{{ app_dir }}/paragun/requirements.txt"
       state: latest
+  - name: Turn off debug mode
+    lineinfile:
+      path: "{{ app_dir }}/paragun/paragun/settings.py"
+      regexp: '^DEBUG = '
+      line: 'DEBUG = False'
   - name: Migrate DB
     shell: "{{ app_dir }}/PARAGUN/bin/python manage.py migrate"
     args:
@@ -369,12 +374,7 @@
     shell: 'echo yes | {{ app_dir }}/PARAGUN/bin/python manage.py collectstatic'
     args:
       chdir: "{{ app_dir }}/paragun"
-  - name: Turn off debug mode
-    lineinfile:
-      path: "{{ app_dir }}/paragun/paragun/settings.py"
-      regexp: '^DEBUG = '
-      line: 'DEBUG = False'
-      
+  
   - name: Kill existing worker processes
     become: root
     #shell: "kill -9 `ps aux | grep gunicorn | grep paragun | awk '{ print $2 }'`"
@@ -407,6 +407,20 @@
     web_url: paragun.labs.strika.co
     token: 'd00ebd19-8fee-40a4-aa6f-bb31cd4843c8'
   tasks:
+  - name: Install nginx
+    apt:
+      name: ['nginx']
+      state: present
+  - name: Restart nginx
+    service: 
+      name: nginx
+      state: restarted
+  - name: Allow incoming traffic on TCP 80
+    ufw:
+      rule: allow
+      direction: in
+      port: 80
+      proto: tcp
   - name: Firewall, deny and log by default
     ufw:
       state: enabled
