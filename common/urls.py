@@ -24,6 +24,7 @@ urlpatterns = [
     path('tokens/create/', TokenCreateView.as_view(), name="token-create"),
     path('tokens/update/<str:pk>/', TokenUpdateView.as_view(), name="token-update"),
     path('tokens/detail/<str:pk>/', TokenDetailView.as_view(), name="token-detail"),
+    path('tokens/delete/<str:pk>/', TokenDeleteView.as_view(), name="token-delete"),
     
     # API views
     path('api/metrics/update/', PulseUpdateView.as_view(), name="pulse-update"),

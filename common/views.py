@@ -10,7 +10,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, ListView, DetailView, FormView, View
-from django.views.generic.edit import CreateView, UpdateView
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
 
 from time import time
 import json
@@ -99,7 +99,7 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
     
     """
     model = Token
-    fields = ['application', 'retain', 'notes', 'tags', 'backup_email']
+    fields = ['application', 'retain', 'notes', 'tags', 'contact']
     page_title = "Create Token"
     template_name = 'common/generic_form.html'
     
@@ -129,7 +129,43 @@ class TokenCreateView(LoginRequiredMixin, CreateView):
             messages.error(self.request, "Your token could not be created.")
             
         return HttpResponseRedirect(self.success_url)
+        
+        
+class TokenDeleteView(LoginRequiredMixin, DeleteView):
+    model = Token
+    page_title = "Delete Token"
+    success_url = reverse_lazy('dashboard')
+    template_name = 'common/object_confirm_delete.html'
     
+    def get_queryset(self, **kwargs):
+        """
+        Restricts tokens available for access to only those owned by user.
+        
+        Returns:
+            tokens (QuerySet): Tokens owned by current user.
+            
+        """
+        return self.request.user.tokens.filter(enabled=True)
+        
+    def delete(self, request, *args, **kwargs):
+        """
+        Calls the delete() method on the fetched object and then
+        redirects to the success URL.
+        
+        We extend this so we can capture the name for the sake of confirmation.
+        
+        """
+        # Get the object in question
+        obj = str(self.get_object())
+        
+        # Perform the actual deletion (the parent class handles this, which will
+        # in turn call the delete() method on the object)
+        response = super().delete(request, *args, **kwargs)
+        
+        # Notify the user of the deletion
+        messages.info(request, "Token '%s' was deleted." % (obj,))
+        return response
+        
     
 class TokenUpdateView(LoginRequiredMixin, UpdateView):
     """
@@ -137,7 +173,7 @@ class TokenUpdateView(LoginRequiredMixin, UpdateView):
     
     """
     model = Token
-    fields = ['application', 'retain', 'notes', 'tags', 'backup_email']
+    fields = ['application', 'retain', 'notes', 'tags', 'contact']
     page_title = "Update Token"
     template_name = 'common/generic_form.html'
     
