@@ -21,7 +21,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s'
+            'format': '%(asctime)s [%(levelname)-8s] %(filename)s.%(funcName)s:%(lineno)d %(message)s'
         },
     },
     'handlers': {
