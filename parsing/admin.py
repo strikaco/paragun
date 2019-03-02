@@ -41,6 +41,8 @@ class SampleAdmin(admin.ModelAdmin):
     
   
 class ServiceAdmin(admin.ModelAdmin):
+    list_display = ('token', 'key', 'enabled')
+    
     inlines = [
         ParserInline,
         SampleInline,

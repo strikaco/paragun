@@ -14,6 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from common.views import *
+from parsing.views import *
 from django.contrib import admin
 from django.urls import path, include
 
@@ -30,6 +31,6 @@ urlpatterns = [
     path('api/metrics/update/', PulseUpdateView.as_view(), name="pulse-update"),
     path('api/tokens/valid/', TokenDumpView.as_view(), name="token-dump"),
     path('api/tokens/retention/', TokenRetentionView.as_view(), name="token-retention"),
-    
+    path('api/parsers/', ParserDumpView.as_view(), name="parser-dump"),
     path('', IndexView.as_view(), name="index"),
 ]

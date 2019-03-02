@@ -20,6 +20,38 @@ class Service(AbstractBaseModel):
             return '%s (%s)' % (self.key, self.token)
         else:
             return '%s' % self.key
+            
+    def get_parsers(self, *args, **kwargs):
+        return self.parsers.enabled()
+        
+    @classmethod
+    def get_parser_map(cls, *args, **kwargs):
+        """
+        Return a dictionary mapping of all service names and their defined
+        parsers, sorted by priority.
+        
+        Parsers that are disabled or in untested/failure states are excluded.
+        
+        Returns:
+            mapping (dict): {
+                service: {
+                    fieldname: [parsers],
+                    fieldname2: [parsers]
+                }
+            }
+        
+        """
+        services = cls.objects.enabled()
+        
+        # The reason I'm breaking this mapping down to the fieldname level instead
+        # of just doing {service: [parsers]} mappings is because I don't want to
+        # re-parse already extracted fields. For each fieldname, find a match
+        # and move on as soon as possible.
+        return {
+            service.key: {
+                parser.field.key: list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True)) for parser in service.parsers.enabled()
+            } for service in services
+        }
         
     def test(self, *args, **kwargs):
         # Get all valid log samples for this service
@@ -36,10 +68,8 @@ class Service(AbstractBaseModel):
                     # Run each against sample until a valid value is found
                     value = None
                     for parser in parsers:
-                        value = parser.regex.search(sample.value)
-                        if value: 
-                            value = value.group(1)
-                            break
+                        value = parser.parse(sample.value)
+                        if value: break
                     
                     try:
                         assert value == assertion.value
@@ -51,9 +81,12 @@ class Service(AbstractBaseModel):
                     
                     if assertion.status == False:
                         sample.status = False
-                        break
                     
                 sample.save()
+                
+        if self.samples.enabled().filter(status=False).exists():
+            return False
+        return True
                 
                 
 class Parser(AbstractBaseModel):
@@ -77,7 +110,7 @@ class Parser(AbstractBaseModel):
         return self._compiled
     
     def __str__(self):
-        return self.service.key + ': ' + self.field.key
+        return '%s: %s (%s)' % (self.service.key, self.field.key, self.priority)
         
     def get_benchmark(self):
         def benchmark_wrapper():
@@ -87,6 +120,10 @@ class Parser(AbstractBaseModel):
         
         # Return the fastest time
         return sorted(times)[0]
+        
+    def parse(self, string, *args, **kwargs):
+        try: return self.regex.search(string).group(1)
+        except: return ''
     
     def save(self, *args, **kwargs):
         # Validate regex, make sure there are no obvious syntax errors
@@ -97,7 +134,7 @@ class Parser(AbstractBaseModel):
         # TODO: validate regex performance; should meet certain threshold
         
         super().save(*args, **kwargs)
-        
+
 
 class Sample(AbstractBaseModel):
     
