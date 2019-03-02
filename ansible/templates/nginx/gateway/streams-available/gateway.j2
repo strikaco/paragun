@@ -1,7 +1,7 @@
 # Load balance log traffic across available servers
 stream {
     upstream consumers {
-    {% for server in groups.consumer %}
+    {% for server in groups.node %}
         server {{ server }}:514;
     {% endfor %}
     }

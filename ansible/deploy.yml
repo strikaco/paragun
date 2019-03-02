@@ -19,10 +19,6 @@
     apt:
       name: ['rsyslog', 'rsyslog-gnutls', 'rsyslog-relp']
       state: present
-  - name: Copy rsyslog-spam test script
-    synchronize:
-      src: syslog_spam.py
-      dest: /tmp/syslog_spam.py
   - name: Firewall, allow ssh
     ufw: 
       rule: allow
@@ -168,109 +164,6 @@
       port: 5432
       proto: tcp
       
-- hosts: consumer
-  vars:
-    web_url: http://paragun.labs.strika.co
-  tasks:
-  - name: Configure rsyslog core
-    synchronize:
-      src: templates/rsyslog/rsyslog-consumers.conf
-      dest: /etc/rsyslog.conf
-    notify:
-    - Restart rsyslog
-  - name: Configure rsyslog as consumer
-    synchronize:
-      src: templates/rsyslog/rsyslog-00-consumer.conf
-      dest: /etc/rsyslog.d/00-consumer.conf
-    notify:
-    - Restart rsyslog
-  - name: Create output directory
-    file:
-      owner: syslog
-      group: adm
-      state: directory
-      path: /var/log/paragun/
-      mode: 0750
-    notify:
-    - Restart rsyslog
-  - name: Create metrics index
-    file:
-      owner: syslog
-      group: adm
-      state: directory
-      path: /var/log/paragun/metrics/
-      mode: 0750
-    notify:
-    - Restart rsyslog
-  - name: Create lookups directory
-    file:
-      owner: syslog
-      group: adm
-      state: directory
-      path: /var/log/paragun/lookups/
-      mode: 0750
-    notify:
-    - Restart rsyslog
-  - name: Create stub lookup table for valid tokens
-    copy:
-      force: no
-      src: templates/rsyslog/blank_lookup.json
-      dest: /var/log/paragun/lookups/token_valid.json
-      owner: syslog
-      group: adm
-      mode: 0750
-    notify:
-    - Restart rsyslog
-    
-  - name: Copy main logrotate script
-    template:
-      src: templates/logrotate/paragun-logs
-      dest: /etc/logrotate.d/paragun-logs
-  - name: Copy token handler logrotate script
-    template:
-      src: templates/logrotate/paragun-metrics
-      dest: /etc/logrotate.d/paragun-metrics
-      
-  - cron:
-      name: Rotate and ship bulk logs
-      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-logs 2>&1 | /usr/bin/logger -t paragun-log-rotate"
-      state: present
-      minute: "*/5"
-  - cron:
-      name: Rotate and ship token counts
-      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-metrics 2>&1 | /usr/bin/logger -t paragun-metrics-rotate"
-      state: present
-      minute: "*/5"
-  - cron:
-      name: Download valid token lists
-      job: "curl -o /var/log/paragun/lookups/token_valid.json {{ web_url }}/api/tokens/valid/ && invoke-rc.d rsyslog rotate > /dev/null"
-      state: present
-      minute: "*/5"
-      
-  - name: Allow incoming traffic on UDP 514
-    ufw:
-      rule: allow
-      direction: in
-      port: 514
-      proto: udp
-  - name: Allow incoming traffic on TCP 10514
-    ufw:
-      rule: allow
-      direction: in
-      port: 10514
-      proto: tcp
-  - name: Allow incoming traffic on TCP 20514 (RELP)
-    ufw:
-      rule: allow
-      direction: in
-      port: 20514
-      proto: tcp
-      
-  handlers:
-  - name: Restart rsyslog
-    service: 
-      name: rsyslog
-      state: restarted
       
 - hosts: frontend
   
@@ -349,7 +242,7 @@
       path: '/var/log/paragun/django.log'
       mode: 0640
   - name: Download app source
-    # WARNING: This will copy private keys around to remote boxes, fix this
+    # FIXME: This will copy private keys around to remote boxes, fix this
     synchronize:
       src: /home/ubuntu/workspace/paragun
       dest: "{{ app_dir }}/"
@@ -401,6 +294,134 @@
     service:
       name: nginx
       state: reloaded
+      
+
+- hosts: node
+  vars:
+    web_url: http://paragun.labs.strika.co
+  tasks:
+  - name: Configure rsyslog core
+    synchronize:
+      src: templates/rsyslog/rsyslog-consumers.conf
+      dest: /etc/rsyslog.conf
+    notify:
+    - Restart rsyslog
+  - name: Configure rsyslog as consumer
+    synchronize:
+      src: templates/rsyslog/rsyslog-00-consumer.conf
+      dest: /etc/rsyslog.d/00-consumer.conf
+    notify:
+    - Restart rsyslog
+  - name: Create output directory
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/paragun/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create metrics index
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/paragun/metrics/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create lookups directory
+    file:
+      owner: syslog
+      group: adm
+      state: directory
+      path: /var/log/paragun/lookups/
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create stub lookup table for valid tokens
+    copy:
+      force: no
+      src: templates/rsyslog/blank_lookup.json
+      dest: /var/log/paragun/lookups/token_valid.json
+      owner: syslog
+      group: adm
+      mode: 0750
+    notify:
+    - Restart rsyslog
+  - name: Create parsing log
+    file:
+      owner: syslog
+      group: adm
+      state: touch
+      path: '/var/log/paragun/rsysparse.log'
+      mode: 0660
+  - name: Copy post-processing/parsing script
+    copy:
+      force: yes
+      src: templates/rsyslog/rsysparse.py
+      dest: /usr/local/bin/rsysparse.py
+      owner: syslog
+      group: adm
+      mode: 0755
+    notify:
+    - Restart rsyslog
+    
+  - name: Copy main logrotate script
+    template:
+      src: templates/logrotate/paragun-logs
+      dest: /etc/logrotate.d/paragun-logs
+  - name: Copy token handler logrotate script
+    template:
+      src: templates/logrotate/paragun-metrics
+      dest: /etc/logrotate.d/paragun-metrics
+      
+  - cron:
+      name: Rotate and ship bulk logs
+      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-logs 2>&1 | /usr/bin/logger -t paragun-log-rotate"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Rotate and ship token counts
+      job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-metrics 2>&1 | /usr/bin/logger -t paragun-metrics-rotate"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Download valid token lists
+      job: "curl -o /var/log/paragun/lookups/tokens.json {{ web_url }}/api/tokens/valid/ && invoke-rc.d rsyslog rotate > /dev/null"
+      state: present
+      minute: "*/5"
+  - cron:
+      name: Download parser tree
+      job: "curl -o /var/log/paragun/lookups/parsers.json {{ web_url }}/api/parsers/"
+      state: present
+      minute: "*/5"
+      
+  - name: Allow incoming traffic on UDP 514
+    ufw:
+      rule: allow
+      direction: in
+      port: 514
+      proto: udp
+  - name: Allow incoming traffic on TCP 10514
+    ufw:
+      rule: allow
+      direction: in
+      port: 10514
+      proto: tcp
+  - name: Allow incoming traffic on TCP 20514 (RELP)
+    ufw:
+      rule: allow
+      direction: in
+      port: 20514
+      proto: tcp
+      
+  handlers:
+  - name: Restart rsyslog
+    service: 
+      name: rsyslog
+      state: restarted
+      
       
 - hosts: spawner
   vars:

@@ -1,12 +1,12 @@
 
 upstream tcpconsumers {
-    {% for server in groups.consumer %}
+    {% for server in groups.node %}
     server {{ server }}:10514;
     {% endfor %}
 }
 
 upstream relpconsumers {
-    {% for server in groups.consumer %}
+    {% for server in groups.node %}
     server {{ server }}:20514;
     {% endfor %}
 }

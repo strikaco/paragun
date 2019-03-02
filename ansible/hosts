@@ -1,20 +1,13 @@
 [gateway]
 paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
-[consumer]
-consumer1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
-consumer2.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
-
-[parser]
-#127.0.0.1
-
-[database]
-#127.0.0.1
-
 [frontend]
 web1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
 
-[writer]
+[node]
+node1.paragun.labs.strika.co ansible_python_interpreter=/usr/bin/python3
+
+[database]
 #127.0.0.1
 
 # For testing; no need for this in production
