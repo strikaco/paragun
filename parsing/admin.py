@@ -4,7 +4,7 @@ from parsing.models import *
 # Register your models here.
 class AssertionInline(admin.TabularInline):
     model = Assertion
-    fields = ('key', 'value', 'enabled')
+    fields = ('key', 'value', 'status', 'enabled')
     extra = 0
     
 
