@@ -240,7 +240,7 @@
       group: root
       state: touch
       path: '/var/log/paragun/django.log'
-      mode: 0640
+      mode: 0660
   - name: Download app source
     # FIXME: This will copy private keys around to remote boxes, fix this
     synchronize:
@@ -358,6 +358,8 @@
       mode: 0660
   - name: Copy post-processing/parsing script
     copy:
+      # FIXME: Do not force in production; come up with something better.
+      # It triggers unnecessary restarts
       force: yes
       src: templates/rsyslog/rsysparse.py
       dest: /usr/local/bin/rsysparse.py
