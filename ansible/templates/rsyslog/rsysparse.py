@@ -57,7 +57,7 @@ def onInit():
     parser_tree = get_parsers()
     
     global punct
-    punct = re.compile('([^a-zA-Z0-9]+)')
+    punct = re.compile('([^a-zA-Z0-9])')
     
     if not parser_tree:
         logger.warn("No parsers loaded.")
