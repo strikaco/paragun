@@ -21,7 +21,7 @@ class SampleInline(admin.TabularInline):
     
     
 class FieldAdmin(admin.ModelAdmin):
-    list_display = ('key', 'description', 'enabled')
+    list_display = ('key', 'description', 'validator', 'enabled')
     list_filter = ('enabled', 'created', 'updated')
     search_fields = ('key', 'description', 'tags')
     
