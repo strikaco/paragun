@@ -343,7 +343,7 @@
     copy:
       force: no
       src: templates/rsyslog/blank_lookup.json
-      dest: /var/log/paragun/lookups/token_valid.json
+      dest: /var/log/paragun/lookups/tokens.json
       owner: syslog
       group: adm
       mode: 0750
