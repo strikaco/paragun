@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+from time import time
+
 import json
 import logging
 import os
@@ -14,6 +16,10 @@ logging.basicConfig(
 
 parsers = {}
 
+# How often to reload the parser tree, in minutes
+REFRESH_INTERVAL = 5
+start_time = time()
+
 # Paragun logic
 def get_parsers():
     """
@@ -21,6 +27,7 @@ def get_parsers():
     
     """
     logger = logging.getLogger(__name__)
+    logger.info("Reloading parser tree...")
     parse_tree = {}
     
     try:
@@ -29,7 +36,8 @@ def get_parsers():
             
             for service in parse_tree.keys():
                 for field in parse_tree[service].keys():
-                    parse_tree[service][field] = [re.compile(x) for x in parse_tree[service][field]]
+                    validator, parsers = parse_tree[service][field]
+                    parse_tree[service][field] = (re.compile('^%s$' % validator), tuple(re.compile(x) for x in parsers))
                     
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -47,6 +55,9 @@ def onInit():
     logger = logging.getLogger(__name__)
     global parser_tree
     parser_tree = get_parsers()
+    
+    global punct
+    punct = re.compile('([^a-zA-Z0-9]+)')
     
     if not parser_tree:
         logger.warn("No parsers loaded.")
@@ -82,18 +93,42 @@ def onReceive(blob):
         logger.debug('Message: %s' % message)
         
         if process and message:
+            # Calculate punct string
+            data['punct'] = re.sub(' ', '_', ''.join(re.findall(punct, message)[:30]))
+            
             # Get applicable parsers
-            for field, parsers in parser_tree.get(process, {}).items():
-                # Try each parser; keep first hit
+            for field in parser_tree.get(process, {}).keys():
+                blob = parser_tree[process][field]
+                
+                validator = blob[0]
+                parsers = blob[1]
+                
+                value = ''
+                
+                # Try each parser and retain first match
                 for parser in parsers:
-                    try: value = parser.search(message).group(1)
-                    except Exception as e: 
-                        logger.debug(e)
-                        value = ''
-                    
+                    try: 
+                        match = parser.search(message)
+                        if match:
+                            value = match.group(1)
+                            logger.debug('Found %s: %s (%s).' % (field, value, parser))
+                        else:
+                            continue
+                        
+                    except Exception as e:
+                        logger.error(e, exc_info=True)
+                        
+                    # Match found
                     if value:
-                        data[field] = value
-                        break
+                        # Validate the extracted value
+                        match = validator.search(value)
+                        if match:
+                            data[field] = value
+                            logger.debug('Validated %s: %s (%s).' % (field, value, validator))
+                            break
+                        else:
+                            logger.debug('Failed %s: %s.' % (field, value))
+                            
     
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -133,7 +168,15 @@ while keepRunning == 1:
         msg = msg[:len(msg)-1] # remove LF
         onReceive(msg)
         sys.stdout.flush() # very important, Python buffers far too much!
+        
+        # Check if we need to reload parser tree
+        now = time()
+        if now - start_time > REFRESH_INTERVAL * 60:
+            start_time = now
+            onInit()
+        
     else: # an empty line means stdin has been closed
         keepRunning = 0
+        
 onExit()
 sys.stdout.flush() # very important, Python buffers far too much!
