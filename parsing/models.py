@@ -45,7 +45,10 @@ class Service(AbstractBaseModel):
         
         return {
             service.key: {
-                parser.field.key: [parser.field.validator, list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True))] for parser in service.parsers.enabled()
+                parser.field.key: {
+                    'validator': parser.field.validator,
+                    'parsers': list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True))
+                } for parser in service.parsers.enabled()
             } for service in services
         }
         
@@ -97,8 +100,6 @@ class Parser(AbstractBaseModel):
     field = models.ForeignKey('parsing.Field', on_delete=models.CASCADE)
     value = models.TextField()
     
-    benchmark = models.FloatField(default=0.0)
-    
     @property
     def regex(self):
         if not getattr(self, '_compiled', None):
@@ -108,22 +109,13 @@ class Parser(AbstractBaseModel):
     def __str__(self):
         return '%s: %s (%s)' % (self.service.key, self.field.key, self.priority)
         
-    def get_benchmark(self):
-        def benchmark_wrapper():
-            return self.regex.match('test string')
-            
-        times = [timeit.timeit(benchmark_wrapper) for x in range(10)]
-        
-        # Return the fastest time
-        return sorted(times)[0]
-        
     def parse(self, string, *args, **kwargs):
         try: return self.regex.search(string).group(1)
         except: return ''
     
     def save(self, *args, **kwargs):
         # Validate regex, make sure there are no obvious syntax errors
-        self.benchmark = self.get_benchmark()
+        obj = self.regex
         
         # TODO: disallow stupid match-all regexes and other performance-killers
         
