@@ -35,21 +35,17 @@ class Service(AbstractBaseModel):
         Returns:
             mapping (dict): {
                 service: {
-                    fieldname: [parsers],
-                    fieldname2: [parsers]
+                    fieldname: [validator, [parsers]],
+                    fieldname2: [validator, [parsers]],
                 }
             }
         
         """
         services = cls.objects.enabled()
         
-        # The reason I'm breaking this mapping down to the fieldname level instead
-        # of just doing {service: [parsers]} mappings is because I don't want to
-        # re-parse already extracted fields. For each fieldname, find a match
-        # and move on as soon as possible.
         return {
             service.key: {
-                parser.field.key: list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True)) for parser in service.parsers.enabled()
+                parser.field.key: [parser.field.validator, list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True))] for parser in service.parsers.enabled()
             } for service in services
         }
         
@@ -165,11 +161,18 @@ class Field(AbstractBaseModel):
     class Meta:
         ordering = ('key',)
     
-    key = models.CharField(max_length=16, unique=True)
+    key = models.CharField(max_length=32, unique=True)
     description = models.TextField(blank=True, null=True)
+    validator = models.TextField(default="(.*)", help_text="Regex string to apply against parsed value to detect match. Use '(.*)' to match any.")
     
     def __str__(self):
         return self.key
+        
+    def save(self, *args, **kwargs):
+        # Check validator for syntax errors
+        re.compile(self.validator)
+        
+        super().save(*args, **kwargs)
         
 try:
     logger = logging.getLogger(__name__)
