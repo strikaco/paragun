@@ -10,7 +10,7 @@ class AssertionInline(admin.TabularInline):
 
 class ParserInline(admin.TabularInline):
     model = Parser
-    fields = ('field', 'priority', 'value', 'benchmark', 'enabled')
+    fields = ('field', 'priority', 'value', 'enabled')
     extra = 0
     
     
@@ -27,7 +27,7 @@ class FieldAdmin(admin.ModelAdmin):
     
     
 class ParserAdmin(admin.ModelAdmin):
-    list_display = ('service', 'field', 'priority', 'value', 'benchmark', 'enabled')
+    list_display = ('service', 'field', 'priority', 'value', 'enabled')
     list_filter = ('enabled', 'created', 'updated', 'service__key', 'field')
     
   
