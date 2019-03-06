@@ -47,6 +47,7 @@ class Service(AbstractBaseModel):
             service.key: {
                 parser.field.key: {
                     'validator': parser.field.validator,
+                    'type': parser.field.type,
                     'parsers': list(service.parsers.enabled().filter(field=parser.field).order_by('priority').values_list('value', flat=True))
                 } for parser in service.parsers.enabled()
             } for service in services
@@ -153,9 +154,35 @@ class Field(AbstractBaseModel):
     class Meta:
         ordering = ('key',)
     
+    # Generic    
+    STR = 'str'
+    BOOL = 'bool'
+    
+    # Numbers
+    INT = 'int'
+    FLOAT = 'float'
+    
+    # Objects
+    IP = 'ip'
+    LIST = 'list'
+    DICT = 'dict'
+    
+    FIELD_TYPES = (
+        (STR, 'String'),
+        (BOOL, 'Boolean'),
+        (INT, 'Integer'),
+        (FLOAT, 'Float'),
+        (IP, 'IP Address'),
+        (LIST, 'List/Array'),
+        (DICT, 'Dict/Hash'),
+    )
+    
+    DEFAULT_VALIDATOR = '(.*)'
+    
     key = models.CharField(max_length=32, unique=True)
+    type = models.CharField(max_length=16, default=STR, choices=FIELD_TYPES)
     description = models.TextField(blank=True, null=True)
-    validator = models.TextField(default="(.*)", help_text="Regex string to apply against parsed value to detect match. Use '(.*)' to match any.")
+    validator = models.TextField(default=DEFAULT_VALIDATOR, help_text="Regex string to apply against parsed value to detect match. Use '(.*)' to match any.")
     
     def __str__(self):
         return self.key
@@ -163,6 +190,10 @@ class Field(AbstractBaseModel):
     def save(self, *args, **kwargs):
         # Check validator for syntax errors
         re.compile(self.validator)
+        
+        # Validation is only supported for strings and lists.
+        if self.type not in (self.STR, self.LIST):
+            self.validator = self.DEFAULT_VALIDATOR
         
         super().save(*args, **kwargs)
         
