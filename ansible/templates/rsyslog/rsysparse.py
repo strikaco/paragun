@@ -1,48 +1,253 @@
 #!/usr/bin/python3
+from netaddr import IPAddress as ip, ipv6_verbose, ipv6_compact
 from time import time
 
+import ast
+import geoip2.database
 import json
 import logging
 import os
 import re
 import sys
+import unittest
 
 logging.basicConfig(
     filename='/var/log/paragun/rsysparse.log', 
-    format='%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d %(message)s', 
-    filemode='a', 
+    format='%(asctime)s [%(levelname)-8s] %(filename)s.%(funcName)s:%(lineno)d %(message)s', 
+    filemode='a+', 
     level=logging.DEBUG
 )
 
-parsers = {}
-
-# How often to reload the parser tree, in minutes
-REFRESH_INTERVAL = 5
 start_time = time()
 
-# Paragun logic
-def get_parsers():
-    """
-    Get all valid parsers and precompile the regexes.
+# How often to reload the parser tree, in minutes
+refresh_interval = 5
+
+mm_asn_db = geoip2.database.Reader('/usr/share/GeoIP/latest-asn')
+mm_city_db = geoip2.database.Reader('/usr/share/GeoIP/latest-city')
+
+class Parser(object):
     
-    """
-    logger = logging.getLogger(__name__)
-    logger.info("Reloading parser tree...")
-    parse_tree = {}
-    
-    try:
-        with open('/var/log/paragun/lookups/parsers.json', 'r') as f:
-            parse_tree = json.load(f)
-            
-            for service in parse_tree.keys():
-                for field in parse_tree[service].keys():
-                    validator, parsers = parse_tree[service][field]
-                    parse_tree[service][field] = (re.compile('^%s$' % validator), tuple(re.compile(x) for x in parsers))
-                    
-    except Exception as e:
-        logger.error(e, exc_info=True)
+    def __init__(self, *args, **kwargs):
+        self.field = kwargs.pop('field')
+        self.cast = kwargs.pop('cast')
+        self.type = kwargs.pop('type')
         
-    return parse_tree
+        self.parsers = tuple(re.compile(x) for x in kwargs['parsers'])
+        
+        validator_regex = kwargs.pop('validator')
+        self.validator = re.compile('^%s$' % validator_regex)
+    
+    def parse(self, message, *args, **kwargs):
+        logger = logging.getLogger(__name__)
+        value = {}
+
+        for parser in self.parsers:
+            try:
+                match = parser.search(message)
+                if not match: continue
+            
+                # Match found. Proceed with validation
+                raw_value = match.group(1)
+                
+                # Try casting
+                value = self.typecast(raw_value)
+                if not value: continue
+                
+                # Try validating
+                validated = self.validate(str(value))
+                if not validated: continue
+                
+                return {self.field: value}
+                
+            except Exception as e:
+                logger.error(e, exc_info=True)
+                
+        return value
+    
+    def typecast(self, value):
+        logger = logging.getLogger(__name__)
+        casted = ''
+        
+        try:
+            casted = self.cast(value)
+        except Exception as e:
+            logger.error("%s failed casting to %s." % (value, self.type))
+            logger.error(e)
+            
+        return casted
+    
+    def validate(self, value, *args, **kwargs):
+        logger = logging.getLogger(__name__)
+        
+        # Validate the extracted value
+        try:
+            match = self.validator.search(value)
+            if match:
+                logger.debug('Validated %s %s (%s).' % (self.field, value, self.validator))
+                return True
+            else:
+                logger.debug('Failed %s validation: %s.' % (self.field, value,))
+                return False
+                
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            return False
+            
+            
+class IPParser(Parser):
+    
+    @classmethod
+    def geoip(cls, ip, *args, **kwargs):
+        logger = logging.getLogger(__name__)
+        logger.debug("Geolocating %s..." % ip)
+        geo = {}
+        
+        # Get ASN info
+        try: response = mm_asn_db.asn(ip)
+        except Exception as e: 
+            logger.error(e)
+            response = None
+        
+        if response:
+            try: geo['asn'] = response.autonomous_system_number
+            except: pass
+            try: geo['org'] = response.autonomous_system_organization
+            except: pass
+            
+        # Get City info
+        try: response = mm_city_db.city(ip)
+        except Exception as e: 
+            logger.error(e)
+            response = None
+        
+        if response:
+            try: geo['iso'] = response.country.iso_code
+            except: pass
+        
+            try: loc = response.subdivisions.most_specific.iso_code
+            except: loc = '??'
+            try: geo['iso_local'] = '%s-%s' % (response.country.iso_code, loc)
+            except: pass
+        
+            try: 
+                geo['lat'] = response.location.latitude
+                geo['lon'] = response.location.longitude
+            except: pass
+        
+        return geo
+    
+    def parse(self, message, *args, **kwargs):
+        logger = logging.getLogger(__name__)
+
+        value = super().parse(message, *args, **kwargs)
+        if not value: return value
+        
+        # Do some additional IP-specific enhancement
+        ip = value[self.field]
+        
+        # Store IP as IPv4 if possible
+        try: value['%s_v4' % self.field] = str(ip.ipv4())
+        except: pass
+    
+        # Upsize to IPv6 if possible
+        value['%s_v6' % self.field] = ip.ipv6().format(dialect=ipv6_verbose)
+        
+        # Is it a private address?
+        is_private = value['%s_private' % self.field] = ip.is_private()
+        
+        # Cast IP as string
+        value[self.field] = str(ip)
+        
+        # If not private, do geoip lookup
+        if not is_private:
+            geo = self.geoip(str(ip))
+            value.update({'%s_%s' % (self.field, k): v for k,v in geo.items()})
+        
+        return value
+    
+
+class ParsingEngine(object):
+    
+    def __init__(self, *args, **kwargs):
+        self.type_map = {
+            'str': str,
+            'bool': bool,
+            'int': int,
+            'float': float,
+            'ip': ip,
+            'list': list,
+            'dict': dict,
+        }
+        
+        self._punct = re.compile('([^a-zA-Z0-9])')
+        
+    def parse(self, service, message, *args, **kwargs):
+        logger = logging.getLogger(__name__)
+        logger.info("Parsing new message...")
+        
+        data = {}
+        
+        for field, parser in self.parse_tree.get(service, {}).items():
+            logger.debug("Parsing %s..." % field)
+            parsed = parser.parse(message)
+            if parsed: data.update(parsed)
+                
+        # Calculate punct string
+        data['punct'] = re.sub(' ', '_', ''.join(re.findall(self._punct, message)[:30]))
+        
+        # Calculate line count
+        data['linecount'] = len(message.splitlines())
+        
+        return data
+        
+    def load_parsers(self, parse_tree, *args, **kwargs):
+        """
+        Precompile the regexes for all valid parsers and get associated
+        attributes.
+        
+        """
+        logger = logging.getLogger(__name__)
+        logger.info("Building parsing tree...")
+        
+        self.parse_tree = {}
+        for service in parse_tree.keys():
+            self.parse_tree[service] = {}
+            for field in parse_tree[service].keys():
+                data = parse_tree[service][field]
+                data['cast'] = self.type_map[data['type']]
+                data['field'] = field
+                
+                logger.debug('%s: %s' % (service, field))
+                
+                Model = Parser
+                if data['type'] == 'ip':
+                    Model = IPParser
+                
+                self.parse_tree[service][field] = Model(**data)
+                
+        logger.info("Done building parsing tree.")
+        logger.debug(self.parse_tree)
+    
+    def read_parser_file(self, *args, **kwargs):
+        """
+        Reads parse tree structure from file and closes it as quickly as possible.
+        
+        """
+        logger = logging.getLogger(__name__)
+        logger.info("Reading parsers from file...")
+        
+        path = kwargs.get('path', '/var/log/paragun/lookups/parsers.json')
+        
+        try:
+            parse_tree = {}
+            with open(path, 'r') as f:
+                parse_tree = json.load(f)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            
+        logger.info("Done reading parsers from file.")
+        return parse_tree
 
 
 # Rsyslog logic
@@ -53,15 +258,17 @@ def onInit():
       
     """
     logger = logging.getLogger(__name__)
-    global parser_tree
-    parser_tree = get_parsers()
     
-    global punct
-    punct = re.compile('([^a-zA-Z0-9])')
+    global mm_asn_db
+    mm_asn_db = geoip2.database.Reader('/usr/share/GeoIP/latest-asn')
     
-    if not parser_tree:
-        logger.warn("No parsers loaded.")
-        
+    global mm_city_db
+    mm_city_db = geoip2.database.Reader('/usr/share/GeoIP/latest-city')
+    
+    global engine
+    engine = ParsingEngine()
+    data = engine.read_parser_file()
+    engine.load_parsers(data)
     
 def onReceive(blob):
     """
@@ -84,51 +291,16 @@ def onReceive(blob):
         # Deserialize JSON string
         rsysjson = json.loads(blob)
         
-        # Get the process that produced the log
-        process = rsysjson.get('$!', {}).get('programname_clean', '')
-        logger.debug('Process: %s' % process)
+        # Get the service that produced the log
+        service = rsysjson.get('$!', {}).get('programname_clean', '')
+        logger.debug('Service: %s' % service)
         
         # Get the cleaned-up message
         message = rsysjson.get('$!', {}).get('msg_short', '')
         logger.debug('Message: %s' % message)
         
-        if process and message:
-            # Calculate punct string
-            data['punct'] = re.sub(' ', '_', ''.join(re.findall(punct, message)[:30]))
-            
-            # Get applicable parsers
-            for field in parser_tree.get(process, {}).keys():
-                blob = parser_tree[process][field]
-                
-                validator = blob[0]
-                parsers = blob[1]
-                
-                value = ''
-                
-                # Try each parser and retain first match
-                for parser in parsers:
-                    try: 
-                        match = parser.search(message)
-                        if match:
-                            value = match.group(1)
-                            logger.debug('Found %s: %s (%s).' % (field, value, parser))
-                        else:
-                            continue
-                        
-                    except Exception as e:
-                        logger.error(e, exc_info=True)
-                        
-                    # Match found
-                    if value:
-                        # Validate the extracted value
-                        match = validator.search(value)
-                        if match:
-                            data[field] = value
-                            logger.debug('Validated %s: %s (%s).' % (field, value, validator))
-                            break
-                        else:
-                            logger.debug('Failed %s: %s.' % (field, value))
-                            
+        if service and message:
+            data = engine.parse(service, message)
     
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -160,23 +332,43 @@ important once we get to the point where the plugin does
 two-way conversations with rsyslog. Do NOT change this!
 See also: https://github.com/rsyslog/rsyslog/issues/22
 """
-onInit()
-keepRunning = 1
-while keepRunning == 1:
-    msg = sys.stdin.readline()
-    if msg:
-        msg = msg[:len(msg)-1] # remove LF
-        onReceive(msg)
-        sys.stdout.flush() # very important, Python buffers far too much!
+if __name__ == '__main__':
+    onInit()
+    keepRunning = 1
+    while keepRunning == 1:
+        msg = sys.stdin.readline()
+        if msg:
+            msg = msg[:len(msg)-1] # remove LF
+            onReceive(msg)
+            sys.stdout.flush() # very important, Python buffers far too much!
+            
+            # Check if we need to reload parser tree
+            now = time()
+            if now - start_time > refresh_interval * 60:
+                start_time = now
+                onInit()
+            
+        else: # an empty line means stdin has been closed
+            keepRunning = 0
+            
+    onExit()
+    sys.stdout.flush() # very important, Python buffers far too much!
+
+"""
+For testing
+
+python -m unittest rsysparse.py
+
+"""
+class RsysparseTest(unittest.TestCase):
+    
+    def setUp(self):
+        serialized = '{"sshd": {"src_ip": {"validator": "(.*)", "type": "ip", "parsers": ["from ([0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3})"]}, "user": {"validator": "(.*)", "type": "str", "parsers": ["user ([a-zA-Z0-9\\\.\\\-]+) from", "username ([a-zA-Z0-9\\\.\\\-]+)", "user is ([a-zA-Z0-9\\\.\\\-]+)"]}}, "ufw": {"dst_ip": {"validator": "(.*)", "type": "str", "parsers": ["to ([0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3})"]}, "src_ip": {"validator": "(.*)", "type": "str", "parsers": ["from ([0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3}\\\.[0-9]{1,3})"]}}}'
+        data = json.loads(serialized)
         
-        # Check if we need to reload parser tree
-        now = time()
-        if now - start_time > REFRESH_INTERVAL * 60:
-            start_time = now
-            onInit()
-        
-    else: # an empty line means stdin has been closed
-        keepRunning = 0
-        
-onExit()
-sys.stdout.flush() # very important, Python buffers far too much!
+        self.engine = ParsingEngine()
+        self.engine.load_parsers(data)
+    
+    def test_stuff(self):
+        msg = 'Aug  1 18:27:46 knight sshd[20325]: Failed password for illegal user test from 218.49.183.17 port 48849 ssh2'
+        print(self.engine.parse('sshd', msg))
