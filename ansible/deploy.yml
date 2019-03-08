@@ -33,6 +33,7 @@
   - name: Firewall, deny by default
     ufw:
       state: enabled
+      direction: incoming
       policy: deny
       log: no
       
@@ -306,29 +307,43 @@
   tasks:
   - name: Install utilities
     apt: 
-      name: ['libmaxminddb0', 'libmaxminddb-dev', 'mmdb-bin', 'python3-pip']
+      name: ['libmaxminddb0', 'libmaxminddb-dev', 'mmdb-bin']
       state: latest
     tags: packages
-  - pip:
-      name: geoip2
+  - snap:
+      # Parser - Install pypy3
+      name: pypy3
       state: present
+      classic: yes
+  - pip:
+      # Parser - Create pypy3 virtualenv
+      name: pudb
+      virtualenv: "/opt/paragun/ENV/"
+      virtualenv_command: "/snap/bin/pypy3 -m venv"
+  - name: Install pip
+    shell: '/opt/paragun/ENV/bin/pypy3 -m ensurepip'
+  - pip:
+      # Parser - Install pypy3 dependencies
+      name: ['geoip2', 'maxminddb', 'netaddr', 'pyasn']
+      virtualenv: "/opt/paragun/ENV/"
+      state: latest
   - name: Configure rsyslog core
-    synchronize:
+    template:
       src: templates/rsyslog/rsyslog-consumers.conf
       dest: /etc/rsyslog.conf
     notify:
     - Restart rsyslog
   - name: Configure rsyslog as consumer
-    synchronize:
+    template:
       src: templates/rsyslog/rsyslog-00-consumer.conf
       dest: /etc/rsyslog.d/00-consumer.conf
     notify:
     - Restart rsyslog
   
   - name: Install GeoIP database updater
-    synchronize:
+    template:
       src: templates/update_geoip.sh
-      dest: /usr/local/bin/update_geoip.sh
+      dest: /opt/paragun/update_geoip.sh
     notify:
     - Download GeoIP
   
@@ -382,26 +397,26 @@
       # It triggers unnecessary restarts
       force: yes
       src: templates/rsyslog/rsysparse.py
-      dest: /usr/local/bin/rsysparse.py
+      dest: /opt/paragun/rsysparse.py
       owner: ubuntu
-      group: syslog
+      group: ubuntu
       mode: 0755
     notify:
     - Restart rsyslog
     
-  - name: Copy main logrotate script
+  - name: Install pipeline logrotate script
     template:
       src: templates/logrotate/paragun-logs
       dest: /etc/logrotate.d/paragun-logs
-  - name: Copy token handler logrotate script
+  - name: Install token metrics logrotate script
     template:
       src: templates/logrotate/paragun-metrics
       dest: /etc/logrotate.d/paragun-metrics
-  - name: Schedule GeoIP database updates
+  - name: Install rsyslog-health logrotate script
     template:
-      src: templates/logrotate/geoip-dbs
-      dest: /etc/logrotate.d/geoip-dbs
-      
+      src: templates/logrotate/paragun-metrics
+      dest: /etc/logrotate.d/paragun-metrics
+  
   - cron:
       name: Rotate and ship bulk logs
       job: "/usr/sbin/logrotate -f /etc/logrotate.d/paragun-logs 2>&1 | /usr/bin/logger -t paragun-log-rotate"
@@ -422,6 +437,13 @@
       job: "curl -o /var/log/paragun/lookups/parsers.json {{ web_url }}/api/parsers/"
       state: present
       minute: "*/5"
+  - cron:
+      name: Update GeoIP databases
+      job: "/bin/sh /opt/paragun/update_geoip.sh"
+      state: present
+      day: "*/21"
+    notify:
+    - Download GeoIP
       
   - name: Allow incoming traffic on UDP 514
     ufw:
@@ -448,7 +470,7 @@
       name: rsyslog
       state: restarted
   - name: Download GeoIP
-    shell: "/bin/sh /usr/local/bin/update_geoip.sh && logrotate --force /etc/logrotate.d/geoip-dbs"
+    shell: "/bin/sh /opt/paragun/update_geoip.sh"
       
 - hosts: spawner
   vars:

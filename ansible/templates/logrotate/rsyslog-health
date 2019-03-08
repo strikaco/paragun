@@ -1,0 +1,17 @@
+/var/log/paragun/metrics/rsyslog-health
+{
+        daily
+        size 1
+        rotate 30
+        missingok
+        notifempty
+        delaycompress
+        compress
+        dateext
+        dateformat -%Y-%m-%d-%s
+        
+        postrotate
+                # Get rsyslog to release lock on metrics file
+                /usr/sbin/invoke-rc.d rsyslog rotate > /dev/null
+        endscript
+}

@@ -1,5 +1,6 @@
-#!/usr/bin/python3
-from netaddr import IPAddress as ip, ipv6_verbose, ipv6_compact
+#!/opt/paragun/ENV/bin/pypy3
+from maxminddb.const import MODE_AUTO, MODE_MMAP, MODE_MMAP_EXT, MODE_FILE, MODE_MEMORY, MODE_FD
+from netaddr import IPAddress, IPNetwork, ipv6_verbose, ipv6_compact
 from time import time
 
 import ast
@@ -7,6 +8,7 @@ import geoip2.database
 import json
 import logging
 import os
+import pyasn
 import re
 import sys
 import unittest
@@ -15,16 +17,17 @@ logging.basicConfig(
     filename='/var/log/paragun/rsysparse.log', 
     format='%(asctime)s [%(levelname)-8s] %(filename)s.%(funcName)s:%(lineno)d %(message)s', 
     filemode='a+', 
-    level=logging.DEBUG
+    level=logging.INFO
 )
 
 start_time = time()
 
 # How often to reload the parser tree, in minutes
-refresh_interval = 5
+refresh_interval = 15
 
-mm_asn_db = geoip2.database.Reader('/usr/share/GeoIP/latest-asn')
+mm_isp_db = geoip2.database.Reader('/usr/share/GeoIP/latest-isp')
 mm_city_db = geoip2.database.Reader('/usr/share/GeoIP/latest-city')
+asn_db = pyasn.pyasn('/usr/share/GeoIP/latest-asn')
 
 class Parser(object):
     
@@ -104,7 +107,24 @@ class IPParser(Parser):
         geo = {}
         
         # Get ASN info
-        try: response = mm_asn_db.asn(ip)
+        try:
+            # should return: (15169, '8.8.8.0/24'), the origin AS, and the BGP prefix it matches
+            asn, bgp = asn_db.lookup(ip)
+            network = IPNetwork(bgp)
+            
+            # Get normalized BGP prefix
+            geo['bgp'] = str(network)
+            
+            # Upscale to ipv6 and get first and last address
+            network = network.ipv6()
+            geo['v6_bgp_beg'] = str(IPAddress(network.first).format(dialect=ipv6_verbose))
+            geo['v6_bgp_end'] = str(IPAddress(network.last).format(dialect=ipv6_verbose))
+            
+        except Exception as e:
+            logger.error(e)
+        
+        # Get ISP info
+        try: response = mm_isp_db.asn(ip)
         except Exception as e: 
             logger.error(e)
             response = None
@@ -125,7 +145,9 @@ class IPParser(Parser):
             try: geo['iso'] = response.country.iso_code
             except: pass
         
-            try: loc = response.subdivisions.most_specific.iso_code
+            try: 
+                loc = response.subdivisions.most_specific.iso_code
+                assert loc
             except: loc = '??'
             try: geo['iso_local'] = '%s-%s' % (response.country.iso_code, loc)
             except: pass
@@ -175,7 +197,7 @@ class ParsingEngine(object):
             'bool': bool,
             'int': int,
             'float': float,
-            'ip': ip,
+            'ip': IPAddress,
             'list': list,
             'dict': dict,
         }
@@ -259,11 +281,14 @@ def onInit():
     """
     logger = logging.getLogger(__name__)
     
-    global mm_asn_db
-    mm_asn_db = geoip2.database.Reader('/usr/share/GeoIP/latest-asn')
+    global mm_isp_db
+    mm_isp_db = geoip2.database.Reader('/usr/share/GeoIP/latest-isp')
     
     global mm_city_db
     mm_city_db = geoip2.database.Reader('/usr/share/GeoIP/latest-city')
+    
+    global asn_db
+    asn_db = pyasn.pyasn('/usr/share/GeoIP/latest-asn')
     
     global engine
     engine = ParsingEngine()
@@ -316,7 +341,8 @@ def onExit():
     being called immediately before exiting.
     
     """
-    pass
+    mm_isp_db.close()
+    mm_city_db.close()
 
 
 """
@@ -335,6 +361,7 @@ See also: https://github.com/rsyslog/rsyslog/issues/22
 if __name__ == '__main__':
     onInit()
     keepRunning = 1
+    max_minutes = refresh_interval * 60
     while keepRunning == 1:
         msg = sys.stdin.readline()
         if msg:
@@ -344,7 +371,7 @@ if __name__ == '__main__':
             
             # Check if we need to reload parser tree
             now = time()
-            if now - start_time > refresh_interval * 60:
+            if now - start_time > max_minutes:
                 start_time = now
                 onInit()
             
